@@ -54,9 +54,9 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { db } from '../firebase'
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore' // serverTimestamp を追加
+import { collection, addDoc, serverTimestamp, getDocs } from 'firebase/firestore'
 import { useRouter } from 'vue-router'
 
 const customer = ref({
@@ -66,15 +66,62 @@ const customer = ref({
   notes: '',
 })
 const router = useRouter()
+const existingCustomers = ref([])
+
+// 顧客データを取得
+const fetchCustomers = async () => {
+  try {
+    const querySnapshot = await getDocs(collection(db, 'customers'))
+    existingCustomers.value = querySnapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    }))
+  } catch (e) {
+    console.error('Error fetching customers: ', e)
+  }
+}
+
+// 重複チェック
+const checkDuplicates = () => {
+  const newCustomer = customer.value
+  const duplicates = existingCustomers.value.filter((existing) => {
+    // 名前が完全一致
+    const nameMatch = existing.name === newCustomer.name
+    // 電話番号が一致（電話番号が入力されている場合のみ）
+    const phoneMatch = newCustomer.phone && existing.phone === newCustomer.phone
+    // カナが一致
+    const kanaMatch = existing.kana === newCustomer.kana
+
+    return nameMatch || phoneMatch || kanaMatch
+  })
+
+  return duplicates
+}
 
 const submitForm = async () => {
   try {
+    // 重複チェック
+    const duplicates = checkDuplicates()
+    if (duplicates.length > 0) {
+      const duplicateDetails = duplicates
+        .map((d) => `名前: ${d.name}, カナ: ${d.kana}, 電話番号: ${d.phone}`)
+        .join('\n')
+
+      if (
+        !confirm(
+          `以下の顧客と重複する可能性があります。\n\n${duplicateDetails}\n\n登録を続行しますか？`,
+        )
+      ) {
+        return
+      }
+    }
+
     const docRef = await addDoc(collection(db, 'customers'), {
       name: customer.value.name,
       kana: customer.value.kana,
       phone: customer.value.phone,
       notes: customer.value.notes,
-      createAt: serverTimestamp(), //customerIdを作成
+      createAt: serverTimestamp(),
     })
     console.log('Document written with ID: ', docRef.id)
     // フォームをリセット
@@ -84,11 +131,16 @@ const submitForm = async () => {
       phone: '',
       notes: '',
     }
-    router.push('/customer') // 一覧画面に戻る
+    router.push('/customer')
   } catch (e) {
     console.error('Error adding document: ', e)
   }
 }
+
+onMounted(() => {
+  fetchCustomers()
+})
+
 const goBack = () => {
   router.push('/customer') // 一覧画面に戻る
 }
