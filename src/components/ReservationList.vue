@@ -42,35 +42,36 @@
         </div>
         <div class="p-4 space-y-2">
           <template v-for="time in timeSlots" :key="time">
-            <div
-              v-if="getReservation(date, time)"
-              class="p-3 rounded-lg"
-              :class="[
-                getReservation(date, time).hasTreatmentHistory
-                  ? 'bg-green-100'
-                  : 'bg-color3 bg-opacity-10',
-              ]"
-              @click="openReservationModal(getReservation(date, time))"
-            >
-              <div class="flex items-center gap-2">
-                <span
-                  v-if="getReservation(date, time).hasTreatmentHistory"
-                  class="material-icons text-green-600"
-                  style="font-size: 16px"
-                >
-                  check_circle
-                </span>
-                <div>
-                  <div class="font-medium text-color3">
-                    {{ formatTime(time) }} {{ getReservation(date, time).customerName }}
-                  </div>
-                  <div class="text-sm text-gray-600">
-                    {{ getReservation(date, time).menu }}
-                    ({{ getReservation(date, time).duration }}分)
+            <template v-if="getReservation(date, time)">
+              <div
+                v-for="reservation in getReservation(date, time)"
+                :key="reservation.id"
+                class="p-3 rounded-lg mb-2"
+                :class="[
+                  reservation.hasTreatmentHistory ? 'bg-green-100' : 'bg-color3 bg-opacity-10',
+                ]"
+                @click="openReservationModal(reservation)"
+              >
+                <div class="flex items-center gap-2">
+                  <span
+                    v-if="reservation.hasTreatmentHistory"
+                    class="material-icons text-green-600"
+                    style="font-size: 16px"
+                  >
+                    check_circle
+                  </span>
+                  <div>
+                    <div class="font-medium text-color3">
+                      {{ formatTime(time) }} {{ reservation.customerName }}
+                    </div>
+                    <div class="text-sm text-gray-600">
+                      {{ reservation.menu }}
+                      ({{ reservation.duration }}分)
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
+            </template>
           </template>
         </div>
       </div>
@@ -113,9 +114,11 @@
             >
               <template v-if="getReservation(date, time)">
                 <div
+                  v-for="(reservation, index) in getReservation(date, time)"
+                  :key="reservation.id"
                   class="absolute inset-y-2 rounded-lg p-2 transition duration-200 cursor-pointer"
                   :class="[
-                    getReservation(date, time).hasTreatmentHistory
+                    reservation.hasTreatmentHistory
                       ? 'bg-green-100 hover:bg-green-200'
                       : 'bg-color3 bg-opacity-10 hover:bg-opacity-20',
                   ]"
@@ -123,14 +126,15 @@
                     position: 'absolute',
                     left: '0.5rem',
                     right: '0.5rem',
-                    width: `${calculateReservationSpan(getReservation(date, time)) * 100 - 8}px`,
-                    zIndex: getReservation(date, time).hasTreatmentHistory ? 2 : 1,
+                    width: `${calculateReservationSpan(reservation) * 100 - 8}px`,
+                    zIndex: getReservation(date, time).length - index,
+                    top: `${index * 100}%`,
                   }"
-                  @click.stop="openReservationModal(getReservation(date, time))"
+                  @click.stop="openReservationModal(reservation)"
                 >
                   <div class="flex items-center space-x-1">
                     <span
-                      v-if="getReservation(date, time).hasTreatmentHistory"
+                      v-if="reservation.hasTreatmentHistory"
                       class="material-icons text-green-600"
                       style="font-size: 16px"
                     >
@@ -138,13 +142,11 @@
                     </span>
                     <div class="flex-1 min-w-0">
                       <div class="font-medium text-color3 truncate text-sm">
-                        {{ getReservation(date, time).customerName }}
+                        {{ reservation.customerName }}
                       </div>
                       <div class="text-xs text-gray-600 truncate">
-                        {{ getReservation(date, time).menu }}
-                        <span class="text-gray-500">
-                          ({{ getReservation(date, time).duration }}分)
-                        </span>
+                        {{ reservation.menu }}
+                        <span class="text-gray-500"> ({{ reservation.duration }}分) </span>
                       </div>
                     </div>
                   </div>
@@ -420,8 +422,9 @@ const reservationMap = computed(() => {
     const key = `${startTime.toISOString().split('T')[0]}_${startTime.getHours()}:${String(startTime.getMinutes()).padStart(2, '0')}`
 
     if (!map.has(key)) {
-      map.set(key, reservation)
+      map.set(key, [])
     }
+    map.get(key).push(reservation)
   })
 
   return map
@@ -434,7 +437,8 @@ const getReservation = (date, time) => {
   datetime.setHours(hours, minutes, 0, 0)
 
   const key = `${datetime.toISOString().split('T')[0]}_${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`
-  return reservationMap.value.get(key)
+  const reservations = reservationMap.value.get(key) || []
+  return reservations.length > 0 ? reservations : null
 }
 
 // 予約の時間枠を計算
