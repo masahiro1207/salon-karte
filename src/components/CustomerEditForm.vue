@@ -76,25 +76,34 @@ const submitForm = async () => {
     const docRef = doc(db, 'customers', customerId)
     await updateDoc(docRef, customer.value)
     console.log('Document updated with ID: ', customerId)
-    router.push('/') // 一覧画面に戻る
+    router.push('/customer') // 顧客一覧画面に戻る
   } catch (e) {
     console.error('Error updating document: ', e)
+    alert('顧客情報の更新に失敗しました')
   }
 }
 
 const goBack = () => {
-  router.push('/customer') // 一覧画面に戻る
+  router.push('/customer') // 顧客一覧画面に戻る
 }
 
 onMounted(async () => {
-  // customerIdを使ってFirestoreからデータを取得
-  const docRef = doc(db, 'customers', customerId)
-  const docSnap = await getDoc(docRef)
+  try {
+    // customerIdを使ってFirestoreからデータを取得
+    const docRef = doc(db, 'customers', customerId)
+    const docSnap = await getDoc(docRef)
 
-  if (docSnap.exists()) {
-    customer.value = docSnap.data()
-  } else {
-    console.log('No such document!')
+    if (docSnap.exists()) {
+      customer.value = docSnap.data()
+    } else {
+      console.log('No such document!')
+      alert('顧客情報が見つかりません')
+      router.push('/customer')
+    }
+  } catch (error) {
+    console.error('Error fetching customer:', error)
+    alert('顧客情報の取得に失敗しました')
+    router.push('/customer')
   }
 })
 </script>
