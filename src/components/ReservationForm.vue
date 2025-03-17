@@ -152,7 +152,8 @@ const filteredCustomers = computed(() => {
   return customers.value.filter(
     (customer) =>
       customer.name.toLowerCase().includes(keyword) ||
-      customer.kana.toLowerCase().includes(keyword),
+      (customer.kana && customer.kana.toLowerCase().includes(keyword)) ||
+      (customer.phone && customer.phone.toLowerCase().includes(keyword)),
   )
 })
 onMounted(async () => {
