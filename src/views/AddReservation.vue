@@ -240,11 +240,13 @@ const setDefaultDateTime = () => {
 // 顧客検索フィルター
 const filterCustomers = () => {
   const search = customerSearch.value.toLowerCase()
-  filteredCustomers.value = customers.value.filter(
-    (customer) =>
-      customer.name.toLowerCase().includes(search) ||
-      (customer.phone && customer.phone.includes(search)),
-  )
+  filteredCustomers.value = customers.value.filter((customer) => {
+    const name = customer.name.toLowerCase()
+    const nameKana = (customer.nameKana || '').toLowerCase()
+    const phone = (customer.phone || '').toLowerCase()
+
+    return name.includes(search) || nameKana.includes(search) || phone.includes(search)
+  })
 }
 
 // 顧客選択処理
