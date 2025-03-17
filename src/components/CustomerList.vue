@@ -330,7 +330,7 @@ const addCustomer = () => {
 }
 
 const editCustomer = (id) => {
-  router.push(`/editcustomer/${id}`)
+  router.push(`/edit/${id}`)
 }
 
 const viewHistory = (id) => {
