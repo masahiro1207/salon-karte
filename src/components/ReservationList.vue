@@ -79,7 +79,7 @@
 
     <!-- タイムテーブル（デスクトップ表示） -->
     <div class="hidden sm:block bg-white rounded-lg shadow-sm overflow-x-auto">
-      <table class="w-full border-collapse min-w-[800px]">
+      <table class="w-full border-collapse min-w-[200px]">
         <!-- 時間ヘッダー -->
         <thead>
           <tr class="bg-gray-50">
@@ -87,9 +87,9 @@
             <th
               v-for="time in timeSlots"
               :key="time"
-              class="border-b border-gray-200 p-4 min-w-[100px] text-center"
+              class="border-b border-gray-200 p-2 min-w-[30px] text-center"
             >
-              <div class="text-sm font-medium text-gray-600">
+              <div class="text-xs font-medium text-gray-600">
                 {{ formatTime(time) }}
               </div>
             </th>
@@ -109,42 +109,49 @@
             <td
               v-for="time in timeSlots"
               :key="time"
-              class="border-b border-gray-200 p-4 relative group"
+              class="border-b border-gray-200 p-2 relative group"
               @click="handleTimeSlotClick(date, time)"
+              :style="{
+                minWidth: '30px',
+                height: `${4 * getLanesForDate(date)}rem`,
+                minHeight: `${4 * getLanesForDate(date)}rem`,
+                padding: '0.15rem !important',
+              }"
             >
               <template v-if="getReservation(date, time)">
                 <div
                   v-for="(reservation, index) in getReservation(date, time)"
                   :key="reservation.id"
-                  class="absolute inset-y-2 rounded-lg p-2 transition duration-200 cursor-pointer"
+                  class="absolute rounded-sm p-2 transition duration-200 cursor-pointer"
                   :class="[
                     reservation.hasTreatmentHistory
                       ? 'bg-green-100 hover:bg-green-200'
-                      : 'bg-color3 bg-opacity-10 hover:bg-opacity-20',
+                      : 'bg-color3 bg-opacity-20 hover:bg-opacity-30',
                   ]"
                   :style="{
                     position: 'absolute',
-                    left: '0.5rem',
-                    right: '0.5rem',
-                    width: `${calculateReservationSpan(reservation) * 100 - 8}px`,
+                    left: '0',
+                    width: `${calculateReservationSpan(reservation) * 100}%`,
                     zIndex: getReservation(date, time).length - index,
-                    top: `${index * 100}%`,
+                    top: `${calculateLanePosition(reservation) * 4}rem`,
+                    height: '3.5rem',
+                    borderLeft: `3px solid ${reservation.hasTreatmentHistory ? '#10B981' : '#6366F1'}`,
                   }"
                   @click.stop="openReservationModal(reservation)"
                 >
-                  <div class="flex items-center space-x-1">
+                  <div class="flex items-center space-x-1 h-full">
                     <span
                       v-if="reservation.hasTreatmentHistory"
-                      class="material-icons text-green-600"
+                      class="material-icons text-green-600 flex-shrink-0"
                       style="font-size: 16px"
                     >
                       check_circle
                     </span>
                     <div class="flex-1 min-w-0">
-                      <div class="font-medium text-color3 truncate text-sm">
+                      <div class="font-medium text-color3 truncate text-lg">
                         {{ reservation.customerName }}
                       </div>
-                      <div class="text-xs text-gray-600 truncate">
+                      <div class="text-md text-gray-600 truncate">
                         {{ reservation.menu }}
                         <span class="text-gray-500"> ({{ reservation.duration }}分) </span>
                       </div>
@@ -419,12 +426,17 @@ const reservationMap = computed(() => {
     if (!reservation.dateTime) return
 
     const startTime = reservation.dateTime.toDate()
-    const key = `${startTime.toISOString().split('T')[0]}_${startTime.getHours()}:${String(startTime.getMinutes()).padStart(2, '0')}`
+    // 日付をローカルタイムゾーンで取得
+    const dateKey = format(startTime, 'yyyy-MM-dd')
+    const timeKey = format(startTime, 'HH:mm')
 
-    if (!map.has(key)) {
-      map.set(key, [])
+    if (!map.has(dateKey)) {
+      map.set(dateKey, new Map())
     }
-    map.get(key).push(reservation)
+    if (!map.get(dateKey).has(timeKey)) {
+      map.get(dateKey).set(timeKey, [])
+    }
+    map.get(dateKey).get(timeKey).push(reservation)
   })
 
   return map
@@ -432,13 +444,9 @@ const reservationMap = computed(() => {
 
 // 指定の日時の予約を取得（キャッシュを利用）
 const getReservation = (date, time) => {
-  const [hours, minutes] = time.split(':').map(Number)
-  const datetime = new Date(date)
-  datetime.setHours(hours, minutes, 0, 0)
-
-  const key = `${datetime.toISOString().split('T')[0]}_${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`
-  const reservations = reservationMap.value.get(key) || []
-  return reservations.length > 0 ? reservations : null
+  const dateKey = format(date, 'yyyy-MM-dd')
+  const timeKey = time
+  return reservationMap.value.get(dateKey)?.get(timeKey) || null
 }
 
 // 予約の時間枠を計算
@@ -562,6 +570,84 @@ const confirmDeleteReservation = async (reservation) => {
   }
 }
 
+// 予約の重なりを検出してレーン数を計算
+const calculateLanes = computed(() => {
+  const lanesByDate = new Map()
+
+  // 日付ごとの予約をグループ化
+  const reservationsByDate = new Map()
+  reservations.value.forEach((reservation) => {
+    if (!reservation.dateTime) return
+    const dateKey = format(reservation.dateTime.toDate(), 'yyyy-MM-dd')
+    if (!reservationsByDate.has(dateKey)) {
+      reservationsByDate.set(dateKey, [])
+    }
+    reservationsByDate.get(dateKey).push(reservation)
+  })
+
+  // 日付ごとに予約の重なりを計算
+  reservationsByDate.forEach((dateReservations, dateKey) => {
+    let hasOverlap = false
+    let maxOverlap = 1
+
+    // 各予約の時間枠を比較
+    for (let i = 0; i < dateReservations.length; i++) {
+      const reservation1 = dateReservations[i]
+      const start1 = reservation1.dateTime.toDate()
+      const end1 = new Date(start1.getTime() + (reservation1.duration || 30) * 60000)
+
+      // 他の予約との重なりをチェック
+      for (let j = i + 1; j < dateReservations.length; j++) {
+        const reservation2 = dateReservations[j]
+        const start2 = reservation2.dateTime.toDate()
+        const end2 = new Date(start2.getTime() + (reservation2.duration || 30) * 60000)
+
+        // 予約が重なっているかチェック
+        if (start1 < end2 && start2 < end1) {
+          hasOverlap = true
+          // 重なっている予約の数をカウント
+          const overlappingCount = dateReservations.filter((r) => {
+            const rStart = r.dateTime.toDate()
+            const rEnd = new Date(rStart.getTime() + (r.duration || 30) * 60000)
+            return rStart < end1 && start1 < rEnd
+          }).length
+          maxOverlap = Math.max(maxOverlap, overlappingCount)
+        }
+      }
+    }
+
+    // 重なりがある場合のみレーン数を増やす
+    lanesByDate.set(dateKey, hasOverlap ? maxOverlap : 1)
+  })
+
+  return lanesByDate
+})
+
+// 予約のレーン位置を計算
+const calculateLanePosition = (reservation) => {
+  if (!reservation || !reservation.dateTime) return 0
+  const startTime = reservation.dateTime.toDate()
+  const dateKey = format(startTime, 'yyyy-MM-dd')
+  const timeKey = format(startTime, 'HH:mm')
+
+  // 同じ時間帯の予約を取得
+  const sameTimeReservations = reservationMap.value.get(dateKey)?.get(timeKey) || []
+
+  // 予約の開始時間でソート
+  const sortedReservations = sameTimeReservations.sort((a, b) => {
+    return a.dateTime.toDate() - b.dateTime.toDate()
+  })
+
+  // 現在の予約のインデックスを返す
+  return sortedReservations.findIndex((r) => r.id === reservation.id)
+}
+
+// 日付ごとのレーン数を取得
+const getLanesForDate = (date) => {
+  const dateKey = format(date, 'yyyy-MM-dd')
+  return calculateLanes.value.get(dateKey) || 1
+}
+
 onMounted(() => {
   fetchReservations()
   // URLクエリパラメータから日時を取得
@@ -597,10 +683,10 @@ onMounted(() => {
 
 /* 予約スロットのスタイル */
 td {
-  height: 5rem;
-  min-height: 5rem;
   position: relative;
   overflow: visible;
+  min-width: 35px;
+  padding: 0.25rem !important;
 }
 
 /* 予約バーのスタイル */
@@ -609,75 +695,63 @@ td {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-/* テーブルヘッダーを固定 */
-thead tr {
-  position: sticky;
-  top: 0;
-  background-color: #f9fafb;
-  z-index: 2;
-}
-
-/* 重なり防止のためのスタイル */
-td {
-  height: 5rem;
-  min-height: 5rem;
-  position: relative;
-  overflow: visible;
-}
-
-/* ホバー時のツールチップスタイル */
-[title] {
-  position: relative;
-}
-
-[title]:hover::after {
-  content: attr(title);
-  position: absolute;
-  bottom: 100%;
-  left: 50%;
-  transform: translateX(-50%);
-  padding: 0.5rem;
-  background: rgba(0, 0, 0, 0.8);
-  color: white;
-  border-radius: 0.25rem;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  padding: 0.25rem;
+  margin: 0;
+  backdrop-filter: blur(4px);
+  border-radius: 2px;
   font-size: 0.75rem;
-  white-space: nowrap;
+  transform-origin: left;
+}
+
+.absolute:hover {
+  transform: scale(1.02);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
   z-index: 10;
 }
 
-/* 新規予約ボタンのスタイル */
-button {
-  transition: all 0.2s ease-in-out;
+/* 予約情報の表示改善 */
+.font-medium {
+  font-weight: 500;
 }
 
-button:hover {
-  transform: scale(1.05);
+.text-sm {
+  font-size: 0.75rem;
 }
 
-/* Material Iconsの縦位置調整 */
-.material-icons {
-  vertical-align: middle;
-  font-size: 1.1em;
-  margin-top: -2px;
+.text-xs {
+  font-size: 0.65rem;
 }
 
-/* モバイル向けの追加スタイル */
-@media (max-width: 640px) {
-  .material-icons {
-    font-size: 20px;
-  }
-
-  td {
-    height: auto;
-    min-height: 4rem;
-  }
+/* テーブルヘッダーのスタイル */
+th {
+  padding: 0.25rem !important;
+  border-right: 1px solid #e5e7eb;
 }
 
-/* スクロールバーのスタイルを維持 */
-.overflow-x-auto {
-  -webkit-overflow-scrolling: touch;
+/* テーブルセルのスタイル */
+td {
+  padding: 0.25rem !important;
+  border-right: 1px solid #e5e7eb;
+}
+
+/* 最後の列の縦線を削除 */
+th:last-child,
+td:last-child {
+  border-right: none;
+}
+
+/* 予約スロットのスタイル */
+td {
+  position: relative;
+  overflow: visible;
+  min-width: 35px;
+  padding: 0.25rem !important;
+  background-color: #f9fafb;
+}
+
+/* 予約があるセルの背景色を白に */
+td[class*='group']:has(.absolute) {
+  background-color: white;
 }
 </style>
