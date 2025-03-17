@@ -71,8 +71,15 @@ const router = useRouter()
 const route = useRoute() // useRouteを初期化
 const customerId = route.params.id // customerIdを取得
 
+// デバッグ用のログを追加
+console.log('Route params:', route.params)
+console.log('Customer ID:', customerId)
+
 const submitForm = async () => {
   try {
+    if (!customerId) {
+      throw new Error('顧客IDが見つかりません')
+    }
     const docRef = doc(db, 'customers', customerId)
     await updateDoc(docRef, customer.value)
     console.log('Document updated with ID: ', customerId)
@@ -89,14 +96,22 @@ const goBack = () => {
 
 onMounted(async () => {
   try {
-    // customerIdを使ってFirestoreからデータを取得
+    if (!customerId) {
+      console.error('Customer ID is missing')
+      alert('顧客IDが見つかりません')
+      router.push('/customer')
+      return
+    }
+
+    console.log('Fetching customer data for ID:', customerId)
     const docRef = doc(db, 'customers', customerId)
     const docSnap = await getDoc(docRef)
 
     if (docSnap.exists()) {
+      console.log('Customer data:', docSnap.data())
       customer.value = docSnap.data()
     } else {
-      console.log('No such document!')
+      console.error('No document found for ID:', customerId)
       alert('顧客情報が見つかりません')
       router.push('/customer')
     }

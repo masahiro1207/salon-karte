@@ -14,7 +14,7 @@ import AddReservation from '../views/AddReservation.vue'
 //追加
 
 const router = createRouter({
-  history: createWebHistory(import.meta.env.BASE_URL),
+  history: createWebHistory('/salon-karte/'),
   routes: [
     {
       path: '/',
