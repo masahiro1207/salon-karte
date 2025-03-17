@@ -28,6 +28,12 @@ export default defineConfig({
     }
   },
   server: {
-    base: '/salon-karte/'
+    base: '/salon-karte/',
+    proxy: {
+      '/__/auth': {
+        target: 'https://salon-chillo.firebaseapp.com',
+        changeOrigin: true
+      }
+    }
   }
 })
