@@ -97,32 +97,56 @@ const customer = ref({
 })
 
 // Kuroshiroの初期化
-const kuroshiro = new Kuroshiro()
-let isInitialized = false
+const kuroshiro = ref(null)
+const analyzer = ref(null)
+let initializationPromise = null
 
 const initializeKuroshiro = async () => {
-  if (!isInitialized) {
+  if (initializationPromise) {
+    return initializationPromise
+  }
+
+  initializationPromise = (async () => {
     try {
-      await kuroshiro.init(new KuromojiAnalyzer())
-      isInitialized = true
+      kuroshiro.value = new Kuroshiro()
+      analyzer.value = new KuromojiAnalyzer()
+      await kuroshiro.value.init(analyzer.value)
     } catch (error) {
       console.error('Error initializing Kuroshiro:', error)
+      kuroshiro.value = null
+      analyzer.value = null
+      initializationPromise = null
     }
-  }
+  })()
+
+  return initializationPromise
 }
 
 // 漢字からカタカナへの変換関数
 const convertToKana = async (text) => {
   if (!text) return ''
+
   try {
-    if (!isInitialized) {
+    if (!kuroshiro.value) {
       await initializeKuroshiro()
     }
+
+    if (!kuroshiro.value) {
+      console.error('Kuroshiro initialization failed')
+      return text
+    }
+
     // 漢字をカタカナに変換
-    return await kuroshiro.convert(text, { to: 'katakana', mode: 'normal' })
+    const result = await kuroshiro.value.convert(text, {
+      to: 'katakana',
+      mode: 'normal',
+      delimiter_start: '',
+      delimiter_end: '',
+    })
+    return result
   } catch (error) {
     console.error('Error converting to kana:', error)
-    return ''
+    return text
   }
 }
 
