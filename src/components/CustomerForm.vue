@@ -84,7 +84,6 @@ import { ref, onMounted, computed } from 'vue'
 import { db } from '../firebase'
 import { collection, addDoc, serverTimestamp, getDocs } from 'firebase/firestore'
 import { useRouter } from 'vue-router'
-import { toKatakana } from '@koozaki/romaji-conv'
 
 const customer = ref({
   lastName: '',
@@ -99,7 +98,12 @@ const customer = ref({
 const convertToKana = (text) => {
   if (!text) return ''
   try {
-    return toKatakana(text)
+    // ひらがなをカタカナに変換
+    const hiragana = text.replace(/[\u3041-\u3096]/g, (ch) =>
+      String.fromCharCode(ch.charCodeAt(0) + 0x60),
+    )
+    // カタカナを返す
+    return hiragana
   } catch (error) {
     console.error('Error converting to kana:', error)
     return ''
@@ -115,16 +119,6 @@ const handleLastNameChange = () => {
 const handleFirstNameChange = () => {
   customer.value.firstNameKana = convertToKana(customer.value.firstName)
 }
-
-// フルネームを計算するcomputed
-const fullName = computed(() => {
-  return `${customer.value.lastName} ${customer.value.firstName}`
-})
-
-// フルネーム（カナ）を計算するcomputed
-const fullNameKana = computed(() => {
-  return `${customer.value.lastNameKana} ${customer.value.firstNameKana}`
-})
 
 const router = useRouter()
 const existingCustomers = ref([])
