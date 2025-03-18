@@ -137,7 +137,7 @@
                     borderLeft: `3px solid ${reservation.hasTreatmentHistory ? '#10B981' : '#6366F1'}`,
                     zIndex: 1,
                   }"
-                  @click.stop="openReservationModal(reservation)"
+                  @click="openReservationModal(reservation)"
                 >
                   <div class="flex items-center space-x-1 h-full">
                     <span
@@ -595,7 +595,8 @@ const editReservation = (id) => {
 
 // 時間枠クリック時の処理
 const handleTimeSlotClick = (date, time) => {
-  if (!getReservation(date, time)) {
+  // 予約がない場合のみ新規予約を追加
+  if (!getReservation(date, time)?.length) {
     addReservationAtTime(date, time)
   }
 }
