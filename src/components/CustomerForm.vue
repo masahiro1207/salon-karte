@@ -84,7 +84,7 @@ import { ref, onMounted, computed } from 'vue'
 import { db } from '../firebase'
 import { collection, addDoc, serverTimestamp, getDocs } from 'firebase/firestore'
 import { useRouter } from 'vue-router'
-import { toKatakana } from '@koozaki/romaji-conv'
+import wanakana from 'wanakana'
 
 const customer = ref({
   lastName: '',
@@ -99,12 +99,10 @@ const customer = ref({
 const convertToKana = (text) => {
   if (!text) return ''
   try {
+    // 漢字をひらがなに変換
+    const hiragana = wanakana.toHiragana(text)
     // ひらがなをカタカナに変換
-    const hiragana = text.replace(/[\u3041-\u3096]/g, (ch) =>
-      String.fromCharCode(ch.charCodeAt(0) + 0x60),
-    )
-    // 漢字をカタカナに変換
-    return toKatakana(hiragana)
+    return wanakana.toKatakana(hiragana)
   } catch (error) {
     console.error('Error converting to kana:', error)
     return ''

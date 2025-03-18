@@ -19,14 +19,14 @@
     "@fullcalendar/timegrid": "^6.1.15",
     "@fullcalendar/timeline": "^6.1.15",
     "@fullcalendar/vue3": "^6.1.15",
-    "@koozaki/romaji-conv": "^2.0.31",
     "date-fns": "^4.1.0",
     "firebase": "^11.4.0",
     "kuroshiro": "^1.2.0",
     "pinia": "^3.0.1",
     "postcss-cli": "^11.0.0",
     "vue": "^3.5.13",
-    "vue-router": "^4.5.0"
+    "vue-router": "^4.5.0",
+    "wanakana": "^5.3.1"
   },
   "devDependencies": {
     "@eslint/js": "^9.20.0",
