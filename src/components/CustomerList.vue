@@ -255,12 +255,21 @@ const filteredCustomers = computed(() => {
   if (!searchQuery.value) return customers.value
 
   const query = searchQuery.value.toLowerCase()
-  return customers.value.filter(
-    (customer) =>
-      customer.name.toLowerCase().includes(query) ||
-      customer.kana.toLowerCase().includes(query) ||
-      customer.phone.includes(query),
-  )
+  return customers.value.filter((customer) => {
+    const lastName = customer.lastName?.toLowerCase() || ''
+    const firstName = customer.firstName?.toLowerCase() || ''
+    const lastNameKana = customer.lastNameKana?.toLowerCase() || ''
+    const firstNameKana = customer.firstNameKana?.toLowerCase() || ''
+    const phone = customer.phone || ''
+
+    return (
+      lastName.includes(query) ||
+      firstName.includes(query) ||
+      lastNameKana.includes(query) ||
+      firstNameKana.includes(query) ||
+      phone.includes(query)
+    )
+  })
 })
 
 const sortedCustomers = computed(() => {
