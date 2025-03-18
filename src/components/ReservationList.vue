@@ -113,14 +113,14 @@
               @click="handleTimeSlotClick(date, time)"
               :style="{
                 minWidth: '30px',
-                height: `${4 * getLanesForDate(date)}rem`,
-                minHeight: `${4 * getLanesForDate(date)}rem`,
+                height: calculateCellHeight(date),
+                minHeight: calculateCellHeight(date),
                 padding: '0.15rem !important',
               }"
             >
               <template v-if="getReservation(date, time)">
                 <div
-                  v-for="(reservation, index) in getReservation(date, time)"
+                  v-for="reservation in getReservation(date, time)"
                   :key="reservation.id"
                   class="absolute rounded-sm p-2 transition duration-200 cursor-pointer"
                   :class="[
@@ -132,10 +132,10 @@
                     position: 'absolute',
                     left: '0',
                     width: `${calculateReservationSpan(reservation) * 100}%`,
-                    zIndex: getReservation(date, time).length - index,
-                    top: `${calculateLanePosition(reservation) * 4}rem`,
+                    ...calculateReservationPosition(reservation),
                     height: '3.5rem',
                     borderLeft: `3px solid ${reservation.hasTreatmentHistory ? '#10B981' : '#6366F1'}`,
+                    zIndex: 1,
                   }"
                   @click.stop="openReservationModal(reservation)"
                 >
@@ -345,6 +345,7 @@ const fetchReservations = async () => {
 
     querySnapshot.forEach((doc) => {
       const data = doc.data()
+      console.log('Reservation data:', data) // 予約データの詳細をログ出力
       if (data.customerId) customerIds.add(data.customerId)
       if (data.menu) menuNames.add(data.menu)
       reservationDocs.push({ id: doc.id, ...data })
@@ -430,6 +431,13 @@ const reservationMap = computed(() => {
     const dateKey = format(startTime, 'yyyy-MM-dd')
     const timeKey = format(startTime, 'HH:mm')
 
+    console.log('Mapping reservation:', {
+      dateKey,
+      timeKey,
+      customerName: reservation.customerName,
+      menu: reservation.menu,
+    })
+
     if (!map.has(dateKey)) {
       map.set(dateKey, new Map())
     }
@@ -446,14 +454,98 @@ const reservationMap = computed(() => {
 const getReservation = (date, time) => {
   const dateKey = format(date, 'yyyy-MM-dd')
   const timeKey = time
-  return reservationMap.value.get(dateKey)?.get(timeKey) || null
+  const [hours, minutes] = timeKey.split(':').map(Number)
+  const targetTime = new Date(date)
+  targetTime.setHours(hours, minutes, 0, 0)
+
+  // その時間枠に開始する予約のみを返す
+  const reservations = reservationMap.value.get(dateKey)?.get(timeKey) || []
+  return reservations.filter((reservation) => {
+    const startTime = reservation.dateTime.toDate()
+    return format(startTime, 'HH:mm') === timeKey
+  })
 }
+
+// 予約の重なりを検出してレーン数を計算
+const calculateLanes = computed(() => {
+  const lanesByDate = new Map()
+
+  // 日付ごとの予約をグループ化
+  const reservationsByDate = new Map()
+  reservations.value.forEach((reservation) => {
+    if (!reservation.dateTime) return
+    const dateKey = format(reservation.dateTime.toDate(), 'yyyy-MM-dd')
+    if (!reservationsByDate.has(dateKey)) {
+      reservationsByDate.set(dateKey, [])
+    }
+    reservationsByDate.get(dateKey).push(reservation)
+  })
+
+  // 日付ごとに予約の重なりを計算
+  reservationsByDate.forEach((dateReservations, dateKey) => {
+    // 予約を開始時間でソート
+    dateReservations.sort((a, b) => {
+      return a.dateTime.toDate() - b.dateTime.toDate()
+    })
+
+    // 各予約にレーン番号を割り当て
+    const laneEndTimes = [] // 各レーンの終了時間を保持
+
+    dateReservations.forEach((reservation) => {
+      const startTime = reservation.dateTime.toDate()
+      const duration = reservation.duration || 30
+      const endTime = new Date(startTime.getTime() + duration * 60000)
+
+      // 利用可能なレーンを探す（最も早く終了するレーンを優先）
+      let laneIndex = -1
+      let earliestEndTime = Infinity
+
+      for (let i = 0; i < laneEndTimes.length; i++) {
+        if (startTime >= laneEndTimes[i] && laneEndTimes[i] < earliestEndTime) {
+          laneIndex = i
+          earliestEndTime = laneEndTimes[i]
+        }
+      }
+
+      // 利用可能なレーンが見つからない場合は新しいレーンを作成
+      if (laneIndex === -1) {
+        laneIndex = laneEndTimes.length
+        laneEndTimes.push(endTime)
+      } else {
+        laneEndTimes[laneIndex] = endTime
+      }
+
+      // 予約にレーン番号を保存
+      reservation.laneIndex = laneIndex
+    })
+
+    lanesByDate.set(dateKey, laneEndTimes.length || 1)
+  })
+
+  return lanesByDate
+})
 
 // 予約の時間枠を計算
 const calculateReservationSpan = (reservation) => {
   if (!reservation || !reservation.dateTime) return 1
   const duration = reservation.duration || 30
   return Math.ceil(duration / 30)
+}
+
+// 予約の位置を計算
+const calculateReservationPosition = (reservation) => {
+  if (!reservation || !reservation.dateTime) return { top: 0 }
+  const laneIndex = reservation.laneIndex || 0
+  return {
+    top: `${laneIndex * 4}rem`,
+  }
+}
+
+// セルの高さを計算
+const calculateCellHeight = (date) => {
+  const dateKey = format(date, 'yyyy-MM-dd')
+  const lanes = calculateLanes.value.get(dateKey) || 1
+  return `${Math.max(lanes * 4, 4)}rem`
 }
 
 // 予約の終了時間をフォーマット
@@ -570,84 +662,6 @@ const confirmDeleteReservation = async (reservation) => {
   }
 }
 
-// 予約の重なりを検出してレーン数を計算
-const calculateLanes = computed(() => {
-  const lanesByDate = new Map()
-
-  // 日付ごとの予約をグループ化
-  const reservationsByDate = new Map()
-  reservations.value.forEach((reservation) => {
-    if (!reservation.dateTime) return
-    const dateKey = format(reservation.dateTime.toDate(), 'yyyy-MM-dd')
-    if (!reservationsByDate.has(dateKey)) {
-      reservationsByDate.set(dateKey, [])
-    }
-    reservationsByDate.get(dateKey).push(reservation)
-  })
-
-  // 日付ごとに予約の重なりを計算
-  reservationsByDate.forEach((dateReservations, dateKey) => {
-    let hasOverlap = false
-    let maxOverlap = 1
-
-    // 各予約の時間枠を比較
-    for (let i = 0; i < dateReservations.length; i++) {
-      const reservation1 = dateReservations[i]
-      const start1 = reservation1.dateTime.toDate()
-      const end1 = new Date(start1.getTime() + (reservation1.duration || 30) * 60000)
-
-      // 他の予約との重なりをチェック
-      for (let j = i + 1; j < dateReservations.length; j++) {
-        const reservation2 = dateReservations[j]
-        const start2 = reservation2.dateTime.toDate()
-        const end2 = new Date(start2.getTime() + (reservation2.duration || 30) * 60000)
-
-        // 予約が重なっているかチェック
-        if (start1 < end2 && start2 < end1) {
-          hasOverlap = true
-          // 重なっている予約の数をカウント
-          const overlappingCount = dateReservations.filter((r) => {
-            const rStart = r.dateTime.toDate()
-            const rEnd = new Date(rStart.getTime() + (r.duration || 30) * 60000)
-            return rStart < end1 && start1 < rEnd
-          }).length
-          maxOverlap = Math.max(maxOverlap, overlappingCount)
-        }
-      }
-    }
-
-    // 重なりがある場合のみレーン数を増やす
-    lanesByDate.set(dateKey, hasOverlap ? maxOverlap : 1)
-  })
-
-  return lanesByDate
-})
-
-// 予約のレーン位置を計算
-const calculateLanePosition = (reservation) => {
-  if (!reservation || !reservation.dateTime) return 0
-  const startTime = reservation.dateTime.toDate()
-  const dateKey = format(startTime, 'yyyy-MM-dd')
-  const timeKey = format(startTime, 'HH:mm')
-
-  // 同じ時間帯の予約を取得
-  const sameTimeReservations = reservationMap.value.get(dateKey)?.get(timeKey) || []
-
-  // 予約の開始時間でソート
-  const sortedReservations = sameTimeReservations.sort((a, b) => {
-    return a.dateTime.toDate() - b.dateTime.toDate()
-  })
-
-  // 現在の予約のインデックスを返す
-  return sortedReservations.findIndex((r) => r.id === reservation.id)
-}
-
-// 日付ごとのレーン数を取得
-const getLanesForDate = (date) => {
-  const dateKey = format(date, 'yyyy-MM-dd')
-  return calculateLanes.value.get(dateKey) || 1
-}
-
 onMounted(() => {
   fetchReservations()
   // URLクエリパラメータから日時を取得
@@ -687,6 +701,7 @@ td {
   overflow: visible;
   min-width: 35px;
   padding: 0.25rem !important;
+  height: 4rem;
 }
 
 /* 予約バーのスタイル */
@@ -702,6 +717,11 @@ td {
   border-radius: 2px;
   font-size: 0.75rem;
   transform-origin: left;
+  position: absolute;
+  left: 0;
+  width: 100%;
+  height: 3.5rem;
+  z-index: 1;
 }
 
 .absolute:hover {
