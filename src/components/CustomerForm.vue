@@ -3,21 +3,47 @@
     <h2 class="text-2xl font-bold mb-4 text-charcoal-black">顧客情報登録</h2>
     <form @submit.prevent="submitForm" class="space-y-4">
       <div class="flex flex-col">
-        <label for="name" class="text-charcoal-black">名前</label>
+        <label for="lastName" class="text-charcoal-black">姓</label>
         <input
           type="text"
-          id="name"
-          v-model="customer.name"
+          id="lastName"
+          v-model="customer.lastName"
+          @input="handleLastNameChange"
           class="border border-gray-300 rounded-md px-3 py-2 text-charcoal-black"
+          required
         />
       </div>
       <div class="flex flex-col">
-        <label for="kana" class="text-charcoal-black">フリガナ</label>
+        <label for="firstName" class="text-charcoal-black">名</label>
         <input
           type="text"
-          id="kana"
-          v-model="customer.kana"
+          id="firstName"
+          v-model="customer.firstName"
+          @input="handleFirstNameChange"
           class="border border-gray-300 rounded-md px-3 py-2 text-charcoal-black"
+          required
+        />
+      </div>
+      <div class="flex flex-col">
+        <label for="lastNameKana" class="text-charcoal-black">姓（フリガナ）</label>
+        <input
+          type="text"
+          id="lastNameKana"
+          v-model="customer.lastNameKana"
+          class="border border-gray-300 rounded-md px-3 py-2 text-charcoal-black bg-gray-50"
+          required
+          readonly
+        />
+      </div>
+      <div class="flex flex-col">
+        <label for="firstNameKana" class="text-charcoal-black">名（フリガナ）</label>
+        <input
+          type="text"
+          id="firstNameKana"
+          v-model="customer.firstNameKana"
+          class="border border-gray-300 rounded-md px-3 py-2 text-charcoal-black bg-gray-50"
+          required
+          readonly
         />
       </div>
       <div class="flex flex-col">
@@ -54,17 +80,52 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { db } from '../firebase'
 import { collection, addDoc, serverTimestamp, getDocs } from 'firebase/firestore'
 import { useRouter } from 'vue-router'
+import { toKatakana } from '@koozaki/romaji-conv'
 
 const customer = ref({
-  name: '',
-  kana: '',
+  lastName: '',
+  firstName: '',
+  lastNameKana: '',
+  firstNameKana: '',
   phone: '',
   notes: '',
 })
+
+// 漢字からカタカナへの変換関数
+const convertToKana = (text) => {
+  if (!text) return ''
+  try {
+    return toKatakana(text)
+  } catch (error) {
+    console.error('Error converting to kana:', error)
+    return ''
+  }
+}
+
+// 姓の変更を監視
+const handleLastNameChange = () => {
+  customer.value.lastNameKana = convertToKana(customer.value.lastName)
+}
+
+// 名の変更を監視
+const handleFirstNameChange = () => {
+  customer.value.firstNameKana = convertToKana(customer.value.firstName)
+}
+
+// フルネームを計算するcomputed
+const fullName = computed(() => {
+  return `${customer.value.lastName} ${customer.value.firstName}`
+})
+
+// フルネーム（カナ）を計算するcomputed
+const fullNameKana = computed(() => {
+  return `${customer.value.lastNameKana} ${customer.value.firstNameKana}`
+})
+
 const router = useRouter()
 const existingCustomers = ref([])
 
@@ -81,16 +142,23 @@ const fetchCustomers = async () => {
   }
 }
 
+onMounted(() => {
+  fetchCustomers()
+})
+
 // 重複チェック
 const checkDuplicates = () => {
   const newCustomer = customer.value
   const duplicates = existingCustomers.value.filter((existing) => {
-    // 名前が完全一致
-    const nameMatch = existing.name === newCustomer.name
+    // 姓名が完全一致
+    const nameMatch =
+      existing.lastName === newCustomer.lastName && existing.firstName === newCustomer.firstName
     // 電話番号が一致（電話番号が入力されている場合のみ）
     const phoneMatch = newCustomer.phone && existing.phone === newCustomer.phone
     // カナが一致
-    const kanaMatch = existing.kana === newCustomer.kana
+    const kanaMatch =
+      existing.lastNameKana === newCustomer.lastNameKana &&
+      existing.firstNameKana === newCustomer.firstNameKana
 
     return nameMatch || phoneMatch || kanaMatch
   })
@@ -104,7 +172,10 @@ const submitForm = async () => {
     const duplicates = checkDuplicates()
     if (duplicates.length > 0) {
       const duplicateDetails = duplicates
-        .map((d) => `名前: ${d.name}, カナ: ${d.kana}, 電話番号: ${d.phone}`)
+        .map(
+          (d) =>
+            `名前: ${d.lastName}${d.firstName}, カナ: ${d.lastNameKana}${d.firstNameKana}, 電話番号: ${d.phone}`,
+        )
         .join('\n')
 
       if (
@@ -117,8 +188,10 @@ const submitForm = async () => {
     }
 
     const docRef = await addDoc(collection(db, 'customers'), {
-      name: customer.value.name,
-      kana: customer.value.kana,
+      lastName: customer.value.lastName,
+      firstName: customer.value.firstName,
+      lastNameKana: customer.value.lastNameKana,
+      firstNameKana: customer.value.firstNameKana,
       phone: customer.value.phone,
       notes: customer.value.notes,
       createAt: serverTimestamp(),
@@ -126,8 +199,10 @@ const submitForm = async () => {
     console.log('Document written with ID: ', docRef.id)
     // フォームをリセット
     customer.value = {
-      name: '',
-      kana: '',
+      lastName: '',
+      firstName: '',
+      lastNameKana: '',
+      firstNameKana: '',
       phone: '',
       notes: '',
     }
@@ -136,10 +211,6 @@ const submitForm = async () => {
     console.error('Error adding document: ', e)
   }
 }
-
-onMounted(() => {
-  fetchCustomers()
-})
 
 const goBack = () => {
   router.push('/customer') // 一覧画面に戻る
