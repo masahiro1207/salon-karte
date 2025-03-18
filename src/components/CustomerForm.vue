@@ -84,7 +84,7 @@ import { ref, onMounted, computed } from 'vue'
 import { db } from '../firebase'
 import { collection, addDoc, serverTimestamp, getDocs } from 'firebase/firestore'
 import { useRouter } from 'vue-router'
-import { toKatakana } from 'japanese-kit'
+import jaconv from 'jaconv'
 
 const customer = ref({
   lastName: '',
@@ -195,7 +195,7 @@ const convertToKana = (text) => {
   if (!text) return ''
   try {
     // 漢字をカタカナに変換
-    return toKatakana(text)
+    return jaconv.toKatakana(text)
   } catch (error) {
     console.error('Error converting to kana:', error)
     return text
