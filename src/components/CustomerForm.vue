@@ -215,4 +215,9 @@ const submitForm = async () => {
 const goBack = () => {
   router.push('/customer') // 一覧画面に戻る
 }
+
+// 新規顧客登録ページへ遷移する関数
+const goToAddCustomer = () => {
+  router.push('/addcustomer')
+}
 </script>

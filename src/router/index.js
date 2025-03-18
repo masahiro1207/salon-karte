@@ -11,6 +11,9 @@ import SalesList from '../components/SalesList.vue'
 import SaleForm from '../components/SaleForm.vue'
 import SaleEditForm from '../components/SaleEditForm.vue'
 import AddReservation from '../views/AddReservation.vue'
+import HomeView from '../views/HomeView.vue'
+import CustomerView from '../views/CustomerView.vue'
+import AddCustomerView from '../views/AddCustomerView.vue'
 //追加
 
 const router = createRouter({
@@ -26,7 +29,7 @@ const router = createRouter({
       path: '/addcustomer',
       name: 'AddCustomer',
       component: CustomerForm,
-  },
+    },
     {
       path: '/customer',
       name: 'home',
@@ -91,6 +94,16 @@ const router = createRouter({
       path: '/about',
       name: 'about',
       component: () => import('../views/AboutView.vue'),
+    },
+    {
+      path: '/customer',
+      name: 'customer',
+      component: CustomerView,
+    },
+    {
+      path: '/addcustomer',
+      name: 'addcustomer',
+      component: AddCustomerView,
     },
   ],
 })
