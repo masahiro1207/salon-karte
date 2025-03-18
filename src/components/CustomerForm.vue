@@ -30,9 +30,8 @@
           type="text"
           id="lastNameKana"
           v-model="customer.lastNameKana"
-          class="border border-gray-300 rounded-md px-3 py-2 text-charcoal-black bg-gray-50"
+          class="border border-gray-300 rounded-md px-3 py-2 text-charcoal-black"
           required
-          readonly
         />
       </div>
       <div class="flex flex-col">
@@ -41,9 +40,8 @@
           type="text"
           id="firstNameKana"
           v-model="customer.firstNameKana"
-          class="border border-gray-300 rounded-md px-3 py-2 text-charcoal-black bg-gray-50"
+          class="border border-gray-300 rounded-md px-3 py-2 text-charcoal-black"
           required
-          readonly
         />
       </div>
       <div class="flex flex-col">
@@ -84,7 +82,7 @@ import { ref, onMounted, computed } from 'vue'
 import { db } from '../firebase'
 import { collection, addDoc, serverTimestamp, getDocs } from 'firebase/firestore'
 import { useRouter } from 'vue-router'
-import jaconv from 'jaconv'
+import { toKatakana } from 'jp-conversion'
 
 const customer = ref({
   lastName: '',
@@ -195,7 +193,7 @@ const convertToKana = (text) => {
   if (!text) return ''
   try {
     // 漢字をカタカナに変換
-    return jaconv.toKatakana(text)
+    return toKatakana(text)
   } catch (error) {
     console.error('Error converting to kana:', error)
     return text
@@ -204,11 +202,15 @@ const convertToKana = (text) => {
 
 // 姓の変更を監視
 const handleLastNameChange = () => {
-  customer.value.lastNameKana = convertToKana(customer.value.lastName)
+  if (customer.value.lastName) {
+    customer.value.lastNameKana = convertToKana(customer.value.lastName)
+  }
 }
 
 // 名の変更を監視
 const handleFirstNameChange = () => {
-  customer.value.firstNameKana = convertToKana(customer.value.firstName)
+  if (customer.value.firstName) {
+    customer.value.firstNameKana = convertToKana(customer.value.firstName)
+  }
 }
 </script>
