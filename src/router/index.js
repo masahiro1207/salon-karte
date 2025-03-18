@@ -1,8 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import CustomerList from '../components/CustomerList.vue'
 import HistoryList from '../components/HistoryList.vue'
 import HistoryForm from '../components/HistoryForm.vue'
-import CustomerForm from '../components/CustomerForm.vue'
 import CustomerEditForm from '../components/CustomerEditForm.vue'
 import ReservationList from '../components/ReservationList.vue'
 import ReservationEditForm from '../components/ReservationEditForm.vue'
@@ -11,10 +9,9 @@ import SalesList from '../components/SalesList.vue'
 import SaleForm from '../components/SaleForm.vue'
 import SaleEditForm from '../components/SaleEditForm.vue'
 import AddReservation from '../views/AddReservation.vue'
-import HomeView from '../views/HomeView.vue'
 import CustomerView from '../views/CustomerView.vue'
 import AddCustomerView from '../views/AddCustomerView.vue'
-//追加
+import HistoryEditForm from '../components/HistoryEditForm.vue'
 
 const router = createRouter({
   history: createWebHistory('/salon-karte/'),
@@ -22,18 +19,17 @@ const router = createRouter({
     {
       path: '/',
       name: 'reservation',
-      //変更
       component: ReservationList,
     },
     {
-      path: '/addcustomer',
-      name: 'AddCustomer',
-      component: CustomerForm,
+      path: '/customer',
+      name: 'customer',
+      component: CustomerView,
     },
     {
-      path: '/customer',
-      name: 'home',
-      component: CustomerList,
+      path: '/addcustomer',
+      name: 'addcustomer',
+      component: AddCustomerView,
     },
     {
       path: '/history/:id',
@@ -46,11 +42,6 @@ const router = createRouter({
       component: HistoryForm,
     },
     {
-      path: '/add',
-      name: 'add',
-      component: CustomerForm,
-    },
-    {
       path: '/edit/:id',
       name: 'edit',
       component: CustomerEditForm,
@@ -58,7 +49,7 @@ const router = createRouter({
     {
       path: '/edithistory/:id',
       name: 'edithistory',
-      component: () => import('../components/HistoryEditForm.vue'),
+      component: HistoryEditForm,
     },
     {
       path: '/addreservation',
@@ -94,16 +85,6 @@ const router = createRouter({
       path: '/about',
       name: 'about',
       component: () => import('../views/AboutView.vue'),
-    },
-    {
-      path: '/customer',
-      name: 'customer',
-      component: CustomerView,
-    },
-    {
-      path: '/addcustomer',
-      name: 'addcustomer',
-      component: AddCustomerView,
     },
   ],
 })
