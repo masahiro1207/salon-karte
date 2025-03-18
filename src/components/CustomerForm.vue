@@ -84,7 +84,7 @@ import { ref, onMounted, computed } from 'vue'
 import { db } from '../firebase'
 import { collection, addDoc, serverTimestamp, getDocs } from 'firebase/firestore'
 import { useRouter } from 'vue-router'
-import { toHiragana, toKatakana } from 'wanakana'
+import Kuroshiro from 'kuroshiro'
 
 const customer = ref({
   lastName: '',
@@ -95,14 +95,16 @@ const customer = ref({
   notes: '',
 })
 
+// Kuroshiroの初期化
+const kuroshiro = new Kuroshiro()
+kuroshiro.init()
+
 // 漢字からカタカナへの変換関数
-const convertToKana = (text) => {
+const convertToKana = async (text) => {
   if (!text) return ''
   try {
-    // 漢字をひらがなに変換
-    const hiragana = toHiragana(text)
-    // ひらがなをカタカナに変換
-    return toKatakana(hiragana)
+    // 漢字をカタカナに変換
+    return await kuroshiro.convert(text, { to: 'katakana' })
   } catch (error) {
     console.error('Error converting to kana:', error)
     return ''
@@ -110,13 +112,13 @@ const convertToKana = (text) => {
 }
 
 // 姓の変更を監視
-const handleLastNameChange = () => {
-  customer.value.lastNameKana = convertToKana(customer.value.lastName)
+const handleLastNameChange = async () => {
+  customer.value.lastNameKana = await convertToKana(customer.value.lastName)
 }
 
 // 名の変更を監視
-const handleFirstNameChange = () => {
-  customer.value.firstNameKana = convertToKana(customer.value.firstName)
+const handleFirstNameChange = async () => {
+  customer.value.firstNameKana = await convertToKana(customer.value.firstName)
 }
 
 const router = useRouter()
