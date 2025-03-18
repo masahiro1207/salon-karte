@@ -12,27 +12,61 @@ import AddReservation from '../views/AddReservation.vue'
 import CustomerView from '../views/CustomerView.vue'
 import AddCustomerView from '../views/AddCustomerView.vue'
 import HistoryEditForm from '../components/HistoryEditForm.vue'
+import ReservationListView from '../views/ReservationListView.vue'
+import AddReservationView from '../views/AddReservationView.vue'
+import EditCustomerView from '../views/EditCustomerView.vue'
+import CustomerHistoryView from '../views/CustomerHistoryView.vue'
+import LoginView from '../views/LoginView.vue'
 
 const router = createRouter({
   history: createWebHistory('/salon-karte/'),
   routes: [
     {
       path: '/',
-      name: 'reservation',
-      component: ReservationList,
+      redirect: '/reservations'
+    },
+    {
+      path: '/reservations',
+      name: 'reservations',
+      component: ReservationListView
+    },
+    {
+      path: '/addreservation',
+      name: 'addreservation',
+      component: AddReservationView
     },
     {
       path: '/customer',
       name: 'customer',
-      component: CustomerView,
+      component: CustomerView
     },
     {
       path: '/addcustomer',
       name: 'addcustomer',
-      component: AddCustomerView,
+      component: AddCustomerView
+    },
+    {
+      path: '/edit/:id',
+      name: 'edit',
+      component: EditCustomerView
     },
     {
       path: '/history/:id',
+      name: 'history',
+      component: CustomerHistoryView
+    },
+    {
+      path: '/edithistory/:id',
+      name: 'edithistory',
+      component: HistoryEditForm
+    },
+    {
+      path: '/login',
+      name: 'login',
+      component: LoginView
+    },
+    {
+      path: '/history',
       name: 'history',
       component: HistoryList,
     },
@@ -42,19 +76,9 @@ const router = createRouter({
       component: HistoryForm,
     },
     {
-      path: '/edit/:id',
+      path: '/edit',
       name: 'edit',
       component: CustomerEditForm,
-    },
-    {
-      path: '/edithistory/:id',
-      name: 'edithistory',
-      component: HistoryEditForm,
-    },
-    {
-      path: '/addreservation',
-      name: 'AddReservation',
-      component: AddReservation
     },
     {
       path: '/editreservation/:id',
