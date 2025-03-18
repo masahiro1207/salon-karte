@@ -85,6 +85,7 @@ import { db } from '../firebase'
 import { collection, addDoc, serverTimestamp, getDocs } from 'firebase/firestore'
 import { useRouter } from 'vue-router'
 import Kuroshiro from 'kuroshiro'
+import KuromojiAnalyzer from 'kuroshiro-analyzer-kuromoji'
 
 const customer = ref({
   lastName: '',
@@ -97,14 +98,28 @@ const customer = ref({
 
 // Kuroshiroの初期化
 const kuroshiro = new Kuroshiro()
-kuroshiro.init()
+let isInitialized = false
+
+const initializeKuroshiro = async () => {
+  if (!isInitialized) {
+    try {
+      await kuroshiro.init(new KuromojiAnalyzer())
+      isInitialized = true
+    } catch (error) {
+      console.error('Error initializing Kuroshiro:', error)
+    }
+  }
+}
 
 // 漢字からカタカナへの変換関数
 const convertToKana = async (text) => {
   if (!text) return ''
   try {
+    if (!isInitialized) {
+      await initializeKuroshiro()
+    }
     // 漢字をカタカナに変換
-    return await kuroshiro.convert(text, { to: 'katakana' })
+    return await kuroshiro.convert(text, { to: 'katakana', mode: 'normal' })
   } catch (error) {
     console.error('Error converting to kana:', error)
     return ''
@@ -137,8 +152,9 @@ const fetchCustomers = async () => {
   }
 }
 
-onMounted(() => {
-  fetchCustomers()
+onMounted(async () => {
+  await initializeKuroshiro()
+  await fetchCustomers()
 })
 
 // 重複チェック
