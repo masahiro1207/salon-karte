@@ -1,4 +1,4 @@
-import { createRouter, createWebHistory } from 'vue-router'
+import { createRouter, createWebHashHistory } from 'vue-router'
 import HistoryList from '../components/HistoryList.vue'
 import HistoryForm from '../components/HistoryForm.vue'
 import CustomerEditForm from '../components/CustomerEditForm.vue'
@@ -19,7 +19,7 @@ import CustomerHistoryView from '../views/CustomerHistoryView.vue'
 import LoginView from '../views/LoginView.vue'
 
 const router = createRouter({
-  history: createWebHistory('/salon-karte/'),
+  history: createWebHashHistory(),
   routes: [
     {
       path: '/',
@@ -46,13 +46,13 @@ const router = createRouter({
       component: AddCustomerView
     },
     {
-      path: '/edit/:id',
-      name: 'edit',
+      path: '/editcustomer/:id',
+      name: 'editcustomer',
       component: EditCustomerView
     },
     {
-      path: '/history/:id',
-      name: 'history',
+      path: '/customerhistory/:id',
+      name: 'customerhistory',
       component: CustomerHistoryView
     },
     {
