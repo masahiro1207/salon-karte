@@ -84,8 +84,7 @@ import { ref, onMounted, computed } from 'vue'
 import { db } from '../firebase'
 import { collection, addDoc, serverTimestamp, getDocs } from 'firebase/firestore'
 import { useRouter } from 'vue-router'
-import Kuroshiro from 'kuroshiro'
-import KuromojiAnalyzer from 'kuroshiro-analyzer-kuromoji'
+import { toKatakana } from 'japanese-kit'
 
 const customer = ref({
   lastName: '',
@@ -95,70 +94,6 @@ const customer = ref({
   phone: '',
   notes: '',
 })
-
-// Kuroshiroの初期化
-const kuroshiro = ref(null)
-const analyzer = ref(null)
-let initializationPromise = null
-
-const initializeKuroshiro = async () => {
-  if (initializationPromise) {
-    return initializationPromise
-  }
-
-  initializationPromise = (async () => {
-    try {
-      kuroshiro.value = new Kuroshiro()
-      analyzer.value = new KuromojiAnalyzer()
-      await kuroshiro.value.init(analyzer.value)
-    } catch (error) {
-      console.error('Error initializing Kuroshiro:', error)
-      kuroshiro.value = null
-      analyzer.value = null
-      initializationPromise = null
-    }
-  })()
-
-  return initializationPromise
-}
-
-// 漢字からカタカナへの変換関数
-const convertToKana = async (text) => {
-  if (!text) return ''
-
-  try {
-    if (!kuroshiro.value) {
-      await initializeKuroshiro()
-    }
-
-    if (!kuroshiro.value) {
-      console.error('Kuroshiro initialization failed')
-      return text
-    }
-
-    // 漢字をカタカナに変換
-    const result = await kuroshiro.value.convert(text, {
-      to: 'katakana',
-      mode: 'normal',
-      delimiter_start: '',
-      delimiter_end: '',
-    })
-    return result
-  } catch (error) {
-    console.error('Error converting to kana:', error)
-    return text
-  }
-}
-
-// 姓の変更を監視
-const handleLastNameChange = async () => {
-  customer.value.lastNameKana = await convertToKana(customer.value.lastName)
-}
-
-// 名の変更を監視
-const handleFirstNameChange = async () => {
-  customer.value.firstNameKana = await convertToKana(customer.value.firstName)
-}
 
 const router = useRouter()
 const existingCustomers = ref([])
@@ -177,7 +112,6 @@ const fetchCustomers = async () => {
 }
 
 onMounted(async () => {
-  await initializeKuroshiro()
   await fetchCustomers()
 })
 
@@ -254,5 +188,27 @@ const goBack = () => {
 // 新規顧客登録ページへ遷移する関数
 const goToAddCustomer = () => {
   router.push('/addcustomer')
+}
+
+// 漢字からカタカナへの変換関数
+const convertToKana = (text) => {
+  if (!text) return ''
+  try {
+    // 漢字をカタカナに変換
+    return toKatakana(text)
+  } catch (error) {
+    console.error('Error converting to kana:', error)
+    return text
+  }
+}
+
+// 姓の変更を監視
+const handleLastNameChange = () => {
+  customer.value.lastNameKana = convertToKana(customer.value.lastName)
+}
+
+// 名の変更を監視
+const handleFirstNameChange = () => {
+  customer.value.firstNameKana = convertToKana(customer.value.firstName)
 }
 </script>
