@@ -78,11 +78,11 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted } from 'vue'
 import { db } from '../firebase'
 import { collection, addDoc, serverTimestamp, getDocs } from 'firebase/firestore'
 import { useRouter } from 'vue-router'
-import { toKatakana } from 'jp-conversion'
+import { toKatakana } from '@koozaki/romaji-conv'
 
 const customer = ref({
   lastName: '',
@@ -181,11 +181,6 @@ const submitForm = async () => {
 
 const goBack = () => {
   router.push('/customer') // 一覧画面に戻る
-}
-
-// 新規顧客登録ページへ遷移する関数
-const goToAddCustomer = () => {
-  router.push('/addcustomer')
 }
 
 // 漢字からカタカナへの変換関数
