@@ -1,4 +1,4 @@
-import { createRouter, createWebHashHistory } from 'vue-router'
+import { createRouter, createWebHistory } from 'vue-router'
 import HistoryList from '../components/HistoryList.vue'
 import HistoryForm from '../components/HistoryForm.vue'
 import CustomerEditForm from '../components/CustomerEditForm.vue'
@@ -17,7 +17,7 @@ import AddCustomerView from '../views/AddCustomerView.vue'
 import HistoryEditForm from '../components/HistoryEditForm.vue'
 
 const router = createRouter({
-  history: createWebHashHistory(),
+  history: createWebHistory('/salon-karte/'),
   routes: [
     {
       path: '/',

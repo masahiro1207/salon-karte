@@ -14,7 +14,7 @@ export default defineConfig({
       'vue': 'vue/dist/vue.esm-bundler.js'
     },
   },
-  base: process.env.NODE_ENV === 'production' ? '/salon-karte/' : '/salon-karte/',
+  base: '/salon-karte/',
   build: {
     outDir: 'dist',
     emptyOutDir: true,
