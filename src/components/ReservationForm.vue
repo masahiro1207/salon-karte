@@ -96,13 +96,43 @@ const searchKeyword = ref('') // 検索キーワードを格納するref
 const selectedCustomer = ref(null) //選択した顧客
 
 const formatDate = (date) => {
-  const year = date.getFullYear()
-  const month = (date.getMonth() + 1).toString().padStart(2, '0')
-  const day = date.getDate().toString().padStart(2, '0')
-  const hours = date.getHours().toString().padStart(2, '0')
-  const minutes = date.getMinutes().toString().padStart(2, '0')
-  return `${year}-${month}-${day}T${hours}:${minutes}`
+  try {
+    // 日付をローカルタイムゾーンで取得
+    const year = date.getFullYear()
+    const month = (date.getMonth() + 1).toString().padStart(2, '0')
+    const day = date.getDate().toString().padStart(2, '0')
+    const hours = date.getHours().toString().padStart(2, '0')
+    const minutes = date.getMinutes().toString().padStart(2, '0')
+    return `${year}-${month}-${day}T${hours}:${minutes}`
+  } catch (error) {
+    console.error('formatDateエラー:', error)
+    return new Date().toISOString().slice(0, 16)
+  }
 }
+
+// URLから日時パラメータを取得して設定
+const initializeDateTime = () => {
+  const dateTimeParam = route.query.dateTime
+  if (dateTimeParam) {
+    try {
+      const decodedDateTime = decodeURIComponent(dateTimeParam)
+      const date = new Date(decodedDateTime)
+      reservation.value.dateTime = formatDate(date)
+    } catch (error) {
+      console.error('日時パラメータの処理エラー:', error)
+      // エラー時は現在時刻をセット
+      const now = new Date()
+      now.setMinutes(Math.ceil(now.getMinutes() / 30) * 30)
+      reservation.value.dateTime = formatDate(now)
+    }
+  } else {
+    // パラメータがない場合は現在時刻をセット
+    const now = new Date()
+    now.setMinutes(Math.ceil(now.getMinutes() / 30) * 30)
+    reservation.value.dateTime = formatDate(now)
+  }
+}
+
 //顧客を選択した時の処理
 const selectCustomer = () => {
   const selected = customers.value.find((c) => c.id === reservation.value.customerId)
@@ -156,33 +186,28 @@ const filteredCustomers = computed(() => {
       (customer.phone && customer.phone.toLowerCase().includes(keyword)),
   )
 })
+
 onMounted(async () => {
   try {
+    // 日時の初期化
+    initializeDateTime()
+
+    // 顧客データの取得
     const customerSnapshot = await getDocs(collection(db, 'customers'))
     customers.value = customerSnapshot.docs.map((doc) => ({
       id: doc.id,
-      ...doc.data(),
+      name: `${doc.data().lastName} ${doc.data().firstName}`,
+      kana: `${doc.data().lastNameKana} ${doc.data().firstNameKana}`,
+      phone: doc.data().phone,
     }))
 
+    // メニューデータの取得
     const menuSnapshot = await getDocs(collection(db, 'menus'))
     menus.value = menuSnapshot.docs
       .map((doc) => ({ id: doc.id, ...doc.data() }))
       .sort((a, b) => a.kana.localeCompare(b.kana, 'ja'))
-
-    // URLからdateTimeパラメータを取得
-    const dateTimeParam = route.query.dateTime
-
-    // dateTimeパラメータがある場合、reservation.dateTimeにセット
-    if (dateTimeParam) {
-      const date = new Date(dateTimeParam)
-      reservation.value.dateTime = formatDate(date).slice(0, 16)
-    } else {
-      const now = new Date() // 現在日時を取得
-      const formattedDateTime = formatDate(now) // formatDate 関数でフォーマット
-      reservation.value.dateTime = formattedDateTime.slice(0, 16) // v-modelの予約日時をセット
-    }
   } catch (e) {
-    console.error('Error getting documents: ', e)
+    console.error('ドキュメントの取得エラー:', e)
   }
 })
 </script>

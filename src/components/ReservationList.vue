@@ -568,37 +568,37 @@ const addReservation = () => {
   router.push({
     path: '/addreservation',
     query: {
-      datetime: encodedDateTime,
+      dateTime: encodedDateTime,
     },
   })
-}
-
-// 新規予約（特定の日時）
-const addReservationAtTime = (date, time) => {
-  const [hours, minutes] = time.split(':').map(Number)
-  const datetime = new Date(date)
-  datetime.setHours(hours, minutes, 0, 0)
-  // URLエンコードして日時を渡す
-  const encodedDateTime = encodeURIComponent(datetime.toISOString())
-  router.push({
-    path: '/addreservation',
-    query: {
-      datetime: encodedDateTime,
-    },
-  })
-}
-
-// 予約編集
-const editReservation = (id) => {
-  router.push(`/editreservation/${id}`)
 }
 
 // 時間枠クリック時の処理
 const handleTimeSlotClick = (date, time) => {
   // 予約がない場合のみ新規予約を追加
   if (!getReservation(date, time)?.length) {
-    addReservationAtTime(date, time)
+    const [hours, minutes] = time.split(':').map(Number)
+    const datetime = new Date(date)
+    datetime.setHours(hours, minutes, 0, 0)
+
+    console.log('クリックされた日時:', datetime)
+
+    // ローカルタイムゾーンを考慮した日時を設定
+    const localDateTime = new Date(datetime.getTime() + datetime.getTimezoneOffset() * 60000)
+    console.log('送信する日時:', localDateTime.toISOString())
+
+    router.push({
+      path: '/addreservation',
+      query: {
+        dateTime: encodeURIComponent(localDateTime.toISOString()),
+      },
+    })
   }
+}
+
+// 予約編集
+const editReservation = (id) => {
+  router.push(`/editreservation/${id}`)
 }
 
 // 予約モーダルを開く

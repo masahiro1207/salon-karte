@@ -47,7 +47,7 @@
               @input="filterCustomers"
               @focus="showCustomerList = true"
               @click.stop
-              placeholder="お客様を検索..."
+              placeholder="お客様を検索（漢字・カタカナ・ひらがな）..."
               class="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-color3 focus:border-transparent"
             />
             <!-- 顧客リストのドロップダウン -->
@@ -63,6 +63,7 @@
                 class="p-2 hover:bg-gray-100 cursor-pointer"
               >
                 <div class="font-medium">{{ customer.name }}</div>
+                <div class="text-sm text-gray-500">{{ customer.nameKana }}</div>
               </div>
             </div>
             <!-- 選択された顧客の表示 -->
@@ -240,13 +241,122 @@ const setDefaultDateTime = () => {
 // 顧客検索フィルター
 const filterCustomers = () => {
   const search = customerSearch.value.toLowerCase()
-  filteredCustomers.value = customers.value.filter((customer) => {
-    const name = customer.name.toLowerCase()
-    const nameKana = (customer.nameKana || '').toLowerCase()
-    const phone = (customer.phone || '').toLowerCase()
+  filteredCustomers.value = customers.value
+    .filter((customer) => {
+      const name = customer.name.toLowerCase()
+      const nameKana = (customer.nameKana || '').toLowerCase()
+      const phone = (customer.phone || '').toLowerCase()
 
-    return name.includes(search) || nameKana.includes(search) || phone.includes(search)
-  })
+      // カタカナ検索を追加
+      const searchKana = convertToKana(search)
+      const customerKana = convertToKana(name)
+
+      return (
+        name.includes(search) ||
+        nameKana.includes(search) ||
+        phone.includes(search) ||
+        customerKana.includes(searchKana)
+      )
+    })
+    .sort((a, b) => {
+      // 50音順でソート
+      const kanaA = convertToKana(a.name)
+      const kanaB = convertToKana(b.name)
+      return kanaA.localeCompare(kanaB, 'ja')
+    })
+}
+
+// ひらがな・カタカナ変換関数
+const convertToKana = (str) => {
+  const kanaMap = {
+    あ: 'ア',
+    い: 'イ',
+    う: 'ウ',
+    え: 'エ',
+    お: 'オ',
+    か: 'カ',
+    き: 'キ',
+    く: 'ク',
+    け: 'ケ',
+    こ: 'コ',
+    さ: 'サ',
+    し: 'シ',
+    す: 'ス',
+    せ: 'セ',
+    そ: 'ソ',
+    た: 'タ',
+    ち: 'チ',
+    つ: 'ツ',
+    て: 'テ',
+    と: 'ト',
+    な: 'ナ',
+    に: 'ニ',
+    ぬ: 'ヌ',
+    ね: 'ネ',
+    の: 'ノ',
+    は: 'ハ',
+    ひ: 'ヒ',
+    ふ: 'フ',
+    へ: 'ヘ',
+    ほ: 'ホ',
+    ま: 'マ',
+    み: 'ミ',
+    む: 'ム',
+    め: 'メ',
+    も: 'モ',
+    や: 'ヤ',
+    ゆ: 'ユ',
+    よ: 'ヨ',
+    ら: 'ラ',
+    り: 'リ',
+    る: 'ル',
+    れ: 'レ',
+    ろ: 'ロ',
+    わ: 'ワ',
+    を: 'ヲ',
+    ん: 'ン',
+    が: 'ガ',
+    ぎ: 'ギ',
+    ぐ: 'グ',
+    げ: 'ゲ',
+    ご: 'ゴ',
+    ざ: 'ザ',
+    じ: 'ジ',
+    ず: 'ズ',
+    ぜ: 'ゼ',
+    ぞ: 'ゾ',
+    だ: 'ダ',
+    ぢ: 'ヂ',
+    づ: 'ヅ',
+    で: 'デ',
+    ど: 'ド',
+    ば: 'バ',
+    び: 'ビ',
+    ぶ: 'ブ',
+    べ: 'ベ',
+    ぼ: 'ボ',
+    ぱ: 'パ',
+    ぴ: 'ピ',
+    ぷ: 'プ',
+    ぺ: 'ペ',
+    ぽ: 'ポ',
+    ぁ: 'ァ',
+    ぃ: 'ィ',
+    ぅ: 'ゥ',
+    ぇ: 'ェ',
+    ぉ: 'ォ',
+    ゃ: 'ャ',
+    ゅ: 'ュ',
+    ょ: 'ョ',
+    っ: 'ッ',
+    '゛': '゛',
+    '゜': '゜',
+  }
+
+  return str
+    .split('')
+    .map((char) => kanaMap[char] || char)
+    .join('')
 }
 
 // 顧客選択処理
