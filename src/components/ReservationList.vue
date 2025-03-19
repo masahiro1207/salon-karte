@@ -380,10 +380,13 @@ const fetchReservations = async () => {
     // 予約データを取得した後、各予約の施術履歴を確認
     const reservationData = await Promise.all(
       reservationDocs.map(async (data) => {
+        // 顧客名の取得（元の方法を維持）
         const customerName = data.customerId
           ? customerData.get(data.customerId)?.name || '不明'
           : '不明'
 
+        // メニュー情報の取得（元の方法を維持）
+        const menu = data.menu || data.service || '不明'
         const menuDuration = data.menu ? menuData.get(data.menu)?.duration || 30 : 30
 
         // その予約の日付の施術履歴を確認
@@ -406,6 +409,7 @@ const fetchReservations = async () => {
           id: data.id,
           ...data,
           customerName,
+          menu,
           duration: menuDuration,
           hasTreatmentHistory,
         }
@@ -583,14 +587,11 @@ const handleTimeSlotClick = (date, time) => {
 
     console.log('クリックされた日時:', datetime)
 
-    // ローカルタイムゾーンを考慮した日時を設定
-    const localDateTime = new Date(datetime.getTime() + datetime.getTimezoneOffset() * 60000)
-    console.log('送信する日時:', localDateTime.toISOString())
-
+    // ローカル時間をそのまま送信
     router.push({
       path: '/addreservation',
       query: {
-        dateTime: encodeURIComponent(localDateTime.toISOString()),
+        dateTime: encodeURIComponent(datetime.toISOString()),
       },
     })
   }
