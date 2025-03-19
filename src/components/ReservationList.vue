@@ -588,12 +588,20 @@ const handleTimeSlotClick = (date, time) => {
     console.log('クリックされた日時:', datetime)
 
     // ローカル時間をそのまま送信
-    router.push({
-      path: '/addreservation',
-      query: {
-        dateTime: encodeURIComponent(datetime.toISOString()),
-      },
-    })
+    const query = {
+      dateTime: datetime.toISOString(),
+    }
+
+    router
+      .push({
+        path: '/addreservation',
+        query,
+      })
+      .catch((err) => {
+        if (err.name !== 'NavigationDuplicated') {
+          console.error('ルーティングエラー:', err)
+        }
+      })
   }
 }
 
