@@ -588,14 +588,12 @@ const handleTimeSlotClick = (date, time) => {
     console.log('クリックされた日時:', datetime)
 
     // ローカル時間をそのまま送信
-    const query = {
-      dateTime: datetime.toISOString(),
-    }
-
     router
       .push({
         path: '/addreservation',
-        query,
+        query: {
+          dateTime: datetime.toISOString(),
+        },
       })
       .catch((err) => {
         if (err.name !== 'NavigationDuplicated') {
