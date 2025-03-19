@@ -658,14 +658,7 @@ const confirmDeleteReservation = async (reservation) => {
 }
 
 const handleReservationClick = (reservation) => {
-  router.push({
-    name: 'AddReservation',
-    query: {
-      dateTime: encodeURIComponent(reservation.dateTime.toDate().toISOString()),
-      menu: encodeURIComponent(reservation.menu || reservation.service || ''),
-      customerId: reservation.customerId,
-    },
-  })
+  selectedReservation.value = reservation
 }
 
 onMounted(() => {
