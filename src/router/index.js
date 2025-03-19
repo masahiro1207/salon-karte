@@ -8,14 +8,13 @@ import AddMenu from '../components/AddMenu.vue'
 import SalesList from '../components/SalesList.vue'
 import SaleForm from '../components/SaleForm.vue'
 import SaleEditForm from '../components/SaleEditForm.vue'
-import CustomerView from '../views/CustomerView.vue'
+import CustomerList from '../components/CustomerList.vue'
+import AddReservation from '../components/AddReservation.vue'
+import CustomerHistory from '../components/CustomerHistory.vue'
+import Login from '../components/Login.vue'
+import AboutView from '../views/AboutView.vue'
 import AddCustomerView from '../views/AddCustomerView.vue'
 import HistoryEditForm from '../components/HistoryEditForm.vue'
-import ReservationListView from '../views/ReservationListView.vue'
-import AddReservationView from '../views/AddReservationView.vue'
-import EditCustomerView from '../views/EditCustomerView.vue'
-import CustomerHistoryView from '../views/CustomerHistoryView.vue'
-import LoginView from '../views/LoginView.vue'
 
 const router = createRouter({
   history: createWebHashHistory(),
@@ -27,17 +26,17 @@ const router = createRouter({
     {
       path: '/reservations',
       name: 'reservations',
-      component: ReservationListView
+      component: ReservationList
     },
     {
       path: '/addreservation',
       name: 'addreservation',
-      component: AddReservationView
+      component: AddReservation
     },
     {
       path: '/customer',
       name: 'customer',
-      component: CustomerView
+      component: CustomerList
     },
     {
       path: '/addcustomer',
@@ -47,12 +46,12 @@ const router = createRouter({
     {
       path: '/editcustomer/:id',
       name: 'editcustomer',
-      component: EditCustomerView
+      component: CustomerEditForm
     },
     {
       path: '/customerhistory/:id',
       name: 'customerhistory',
-      component: CustomerHistoryView
+      component: CustomerHistory
     },
     {
       path: '/edithistory/:id',
@@ -62,7 +61,7 @@ const router = createRouter({
     {
       path: '/login',
       name: 'login',
-      component: LoginView
+      component: Login
     },
     {
       path: '/history',
@@ -107,7 +106,7 @@ const router = createRouter({
     {
       path: '/about',
       name: 'about',
-      component: () => import('../views/AboutView.vue'),
+      component: AboutView,
     },
   ],
 })
