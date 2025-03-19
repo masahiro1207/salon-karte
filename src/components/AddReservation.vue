@@ -214,42 +214,55 @@ const handleServiceSelect = (event) => {
 }
 
 // 初期データ取得とURLパラメータの処理
-onMounted(() => {
-  fetchCustomers()
-  fetchMenus()
+onMounted(async () => {
+  // メニュー一覧を取得
+  await fetchMenus()
 
-  // URLクエリパラメータから日時を取得
-  const dateTime = route.query.dateTime
+  // 顧客一覧を取得
+  await fetchCustomers()
+
+  // URLパラメータから予約情報を取得
+  const { dateTime, menu, customerId } = route.query
+
   if (dateTime) {
     const decodedDateTime = decodeURIComponent(dateTime)
-    const date = new Date(decodedDateTime)
+    const datetime = new Date(decodedDateTime)
 
     // 日付と時間をフォーマット
-    const formattedDate = date.toISOString().split('T')[0]
-    const formattedTime = `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`
-
-    console.log('Received dateTime:', dateTime)
-    console.log('Parsed date:', date)
-    console.log('Formatted date:', formattedDate)
-    console.log('Formatted time:', formattedTime)
+    const formattedDate = datetime.toISOString().split('T')[0]
+    const formattedTime = `${datetime.getHours().toString().padStart(2, '0')}:${datetime.getMinutes().toString().padStart(2, '0')}`
 
     // 予約フォームに設定
-    reservation.value.date = formattedDate
-    reservation.value.time = formattedTime
+    reservation.value = {
+      ...reservation.value,
+      date: formattedDate,
+      time: formattedTime,
+    }
   }
 
-  // URLクエリパラメータからメニュー情報を取得
-  const menu = route.query.menu
+  // メニュー情報が指定されている場合
   if (menu) {
     const decodedMenu = decodeURIComponent(menu)
-    console.log('Received menu:', decodedMenu)
-    reservation.value.service = decodedMenu
-    reservation.value.menu = decodedMenu
-    // メニューの詳細情報を設定
     const selectedMenu = menus.value.find((m) => m.name === decodedMenu)
     if (selectedMenu) {
-      reservation.value.serviceId = selectedMenu.id
-      reservation.value.duration = selectedMenu.duration
+      reservation.value = {
+        ...reservation.value,
+        menu: selectedMenu.name,
+        serviceId: selectedMenu.id,
+        duration: selectedMenu.duration,
+      }
+    }
+  }
+
+  // 顧客IDが指定されている場合
+  if (customerId) {
+    const selectedCustomer = customers.value.find((c) => c.id === customerId)
+    if (selectedCustomer) {
+      reservation.value = {
+        ...reservation.value,
+        customerId: selectedCustomer.id,
+        customerName: `${selectedCustomer.firstName} ${selectedCustomer.lastName}`,
+      }
     }
   }
 })

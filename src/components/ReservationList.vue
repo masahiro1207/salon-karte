@@ -50,7 +50,7 @@
                 :class="[
                   reservation.hasTreatmentHistory ? 'bg-green-100' : 'bg-color3 bg-opacity-10',
                 ]"
-                @click="openReservationModal(reservation)"
+                @click="handleReservationClick(reservation)"
               >
                 <div class="flex items-center gap-2">
                   <span
@@ -137,7 +137,7 @@
                     borderLeft: `3px solid ${reservation.hasTreatmentHistory ? '#10B981' : '#6366F1'}`,
                     zIndex: 1,
                   }"
-                  @click="openReservationModal(reservation)"
+                  @click="handleReservationClick(reservation)"
                 >
                   <div class="flex items-center space-x-1 h-full">
                     <span
@@ -602,21 +602,6 @@ const editReservation = (id) => {
   router.push(`/editreservation/${id}`)
 }
 
-// 予約モーダルを開く
-const openReservationModal = (reservation) => {
-  if (!reservation) {
-    console.error('No reservation provided to openReservationModal')
-    return
-  }
-  console.log('Opening modal for reservation:', {
-    id: reservation.id,
-    customerName: reservation.customerName,
-    dateTime: reservation.dateTime,
-    menu: reservation.menu,
-  })
-  selectedReservation.value = reservation
-}
-
 // 施術履歴追加
 const addTreatmentHistory = (reservation) => {
   const treatmentDate = reservation.dateTime.toDate()
@@ -662,6 +647,17 @@ const confirmDeleteReservation = async (reservation) => {
       alert('予約の削除中にエラーが発生しました。')
     }
   }
+}
+
+const handleReservationClick = (reservation) => {
+  router.push({
+    name: 'AddReservation',
+    query: {
+      dateTime: encodeURIComponent(reservation.dateTime.toDate().toISOString()),
+      menu: encodeURIComponent(reservation.menu || reservation.service || ''),
+      customerId: reservation.customerId,
+    },
+  })
 }
 
 onMounted(() => {
