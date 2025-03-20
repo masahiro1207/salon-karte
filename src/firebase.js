@@ -20,7 +20,6 @@ export const db = getFirestore(app);
 // Firebase Authentication のインスタンスを取得
 export const auth = getAuth(app);
 
-// Google 認証プロバイダを作成
 export const googleAuthProvider = new GoogleAuthProvider();
 
 export default app;

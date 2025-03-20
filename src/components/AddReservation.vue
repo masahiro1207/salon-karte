@@ -143,8 +143,8 @@ const fetchCustomers = async () => {
       const data = doc.data()
       return {
         id: doc.id,
-        name: data.name || '',
-        kana: data.kana || '',
+        name: `${data.lastName || ''} ${data.firstName || ''}`.trim(),
+        kana: `${data.lastNameKana || ''} ${data.firstNameKana || ''}`.trim(),
         phone: data.phone || '',
         email: data.email || '',
       }
@@ -187,7 +187,11 @@ const filteredCustomers = computed(() => {
 
 // 顧客選択
 const selectCustomer = (customer) => {
-  selectedCustomer.value = customer
+  selectedCustomer.value = {
+    ...customer,
+    lastName: customer.name.split(' ')[0] || '',
+    firstName: customer.name.split(' ')[1] || '',
+  }
   reservation.value.customerId = customer.id
   reservation.value.customerName = customer.name
   searchQuery.value = customer.name
@@ -277,7 +281,7 @@ const submitForm = async () => {
     // 予約データを作成
     const reservationData = {
       customerId: reservation.value.customerId,
-      customerName: selectedCustomer.value.name,
+      customerName: `${selectedCustomer.value.lastName} ${selectedCustomer.value.firstName}`.trim(),
       dateTime: Timestamp.fromDate(localDateTime),
       service: reservation.value.service,
       serviceId: reservation.value.serviceId,

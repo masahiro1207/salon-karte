@@ -83,7 +83,7 @@
         </button>
       </div>
       <div class="flex flex-col">
-        <label for="notes">備考</label>
+        <label for="notes">施術履歴</label>
         <textarea
           id="notes"
           v-model="history.notes"
@@ -107,7 +107,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, toRaw, watch } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { db } from '../firebase'
 import {
   collection,
@@ -119,6 +119,8 @@ import {
   query,
   where,
   getDocs as firestoreGetDocs,
+  deleteDoc,
+  addDoc,
 } from 'firebase/firestore'
 import { useRouter, useRoute } from 'vue-router'
 
@@ -127,18 +129,6 @@ const route = useRoute()
 const historyId = route.params.id
 const customerName = ref('')
 const menus = ref([])
-
-// 元のデータを保持する変数
-const originalHistory = ref({
-  customerId: '',
-  dateTime: '',
-  menu: '',
-  staff: '',
-  price: null,
-  paymentMethod: '現金',
-  products: [{ name: '', count: 1 }],
-  notes: '',
-})
 
 const history = ref({
   customerId: '',
@@ -192,66 +182,66 @@ const formatDate = (input) => {
 }
 
 const goBack = () => {
-  router.push(`/history/${history.value.customerId}`)
+  router.push('/reservations')
 }
 
 const submitForm = async () => {
   try {
-    const docRef = doc(db, 'histories', historyId)
-
-    // 既存のデータを取得
-    const existingDoc = await getDoc(docRef)
-    const existingData = existingDoc.exists() ? existingDoc.data() : {}
-
-    // 更新データの作成
-    const formattedHistory = {
+    // 履歴データを更新
+    const historyRef = doc(db, 'histories', historyId)
+    await updateDoc(historyRef, {
       customerId: history.value.customerId,
       dateTime: Timestamp.fromDate(new Date(history.value.dateTime)),
       menu: history.value.menu,
       staff: history.value.staff,
       price: Number(history.value.price),
       paymentMethod: history.value.paymentMethod,
-      products: history.value.products.filter(p => p.name && p.count), // 空の商品を除外
+      products: history.value.products,
       notes: history.value.notes,
-      updateAt: Timestamp.now(),
-      createAt: existingData.createAt || Timestamp.now(), // 既存のcreateAtを保持、なければ現在時刻
-    }
+      updateAt: new Date(),
+    })
 
-    // 履歴を更新
-    await updateDoc(docRef, formattedHistory)
-    console.log('History updated with ID: ', historyId)
+    // 売上データを検索
+    const salesQuery = query(
+      collection(db, 'sales'),
+      where('customerId', '==', history.value.customerId),
+      where('dateTime', '==', Timestamp.fromDate(new Date(history.value.dateTime))),
+    )
+    const salesSnapshot = await getDocs(salesQuery)
 
-    // 更新された履歴情報のIDを使って関連する売上情報を検索
-    const q = query(collection(db, 'sales'), where('historyId', '==', historyId))
-    const querySnapshot = await firestoreGetDocs(q)
-
-    // 関連する売上情報が見つかった場合、その情報を更新
-    for (const doc of querySnapshot.docs) {
-      const salesRef = doc.ref
-      const existingSale = await getDoc(salesRef)
-      const existingSaleData = existingSale.exists() ? existingSale.data() : {}
-
-      const formattedSale = {
+    if (!salesSnapshot.empty) {
+      // 既存の売上データを更新
+      const saleRef = doc(db, 'sales', salesSnapshot.docs[0].id)
+      await updateDoc(saleRef, {
         customerId: history.value.customerId,
         dateTime: Timestamp.fromDate(new Date(history.value.dateTime)),
         menu: history.value.menu,
         staff: history.value.staff,
         price: Number(history.value.price),
         paymentMethod: history.value.paymentMethod,
-        products: history.value.products.filter(p => p.name && p.count), // 空の商品を除外
+        products: history.value.products,
         notes: history.value.notes,
-        updateAt: Timestamp.now(),
-        createAt: existingSaleData.createAt || Timestamp.now(), // 既存のcreateAtを保持
-        historyId: historyId // historyIdを保持
-      }
-
-      await updateDoc(salesRef, formattedSale)
-      console.log('Sale updated with ID: ', doc.id)
+        updateAt: new Date(),
+      })
+    } else {
+      // 新しい売上データを作成
+      await addDoc(collection(db, 'sales'), {
+        customerId: history.value.customerId,
+        dateTime: Timestamp.fromDate(new Date(history.value.dateTime)),
+        menu: history.value.menu,
+        staff: history.value.staff,
+        price: Number(history.value.price),
+        paymentMethod: history.value.paymentMethod,
+        products: history.value.products,
+        notes: history.value.notes,
+        createAt: new Date(),
+      })
     }
 
-    router.push(`/history/${history.value.customerId}`)
+    router.push(`/customerhistory/${history.value.customerId}`)
   } catch (e) {
-    console.error('Error updating documents: ', e)
+    console.error('Error updating document: ', e)
+    alert('更新に失敗しました。')
   }
 }
 
@@ -283,24 +273,24 @@ onMounted(async () => {
       // 日付を適切にフォーマット
       const formattedDate = formatDate(data.dateTime)
 
+      // URLクエリパラメータからデータを取得
+      const queryPrice = route.query.price ? Number(route.query.price) : data.price
+      const queryMenu = route.query.menu || data.menu
+      const queryStaff = route.query.staff || data.staff
+      const queryPaymentMethod = route.query.paymentMethod || data.paymentMethod
+      const queryProducts = route.query.products ? JSON.parse(route.query.products) : data.products
+      const queryNotes = route.query.notes || data.notes
+
       // データを設定
       history.value = {
         customerId: data.customerId,
         dateTime: formattedDate,
-        menu: data.menu,
-        staff: data.staff,
-        price: data.price,
-        paymentMethod: data.paymentMethod || '現金',
-        products: data.products || [{ name: '', count: 1 }],
-        notes: data.notes || '',
-      }
-
-      // メニューに応じた価格をセット
-      if (history.value.menu) {
-        const selectedMenu = menus.value.find((menu) => menu.name === history.value.menu)
-        if (selectedMenu && !history.value.price) {
-          history.value.price = selectedMenu.price
-        }
+        menu: queryMenu,
+        staff: queryStaff,
+        price: queryPrice,
+        paymentMethod: queryPaymentMethod || '現金',
+        products: queryProducts || [{ name: '', count: 1 }],
+        notes: queryNotes || '',
       }
 
       // 顧客名を取得

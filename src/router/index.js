@@ -15,6 +15,7 @@ import Login from '../components/Login.vue'
 import AboutView from '../views/AboutView.vue'
 import AddCustomerView from '../views/AddCustomerView.vue'
 import HistoryEditForm from '../components/HistoryEditForm.vue'
+import AddHistory from '../components/AddHistory.vue'
 
 const router = createRouter({
   history: createWebHistory('/salon-karte/'),
@@ -71,7 +72,8 @@ const router = createRouter({
     {
       path: '/addhistory/:id',
       name: 'addhistory',
-      component: HistoryForm,
+      component: AddHistory,
+      meta: { requiresAuth: true }
     },
     {
       path: '/edit',
@@ -107,6 +109,12 @@ const router = createRouter({
       path: '/about',
       name: 'about',
       component: AboutView,
+    },
+    {
+      path: '/history/:id',
+      name: 'CustomerHistory',
+      component: CustomerHistory,
+      meta: { requiresAuth: true }
     }
   ],
 })

@@ -257,12 +257,12 @@ const router = useRouter()
 const route = useRoute()
 const reservations = ref([])
 const selectedReservation = ref(null)
-const currentWeekStart = ref(startOfWeek(new Date(), { weekStartsOn: 1 }))
+const currentWeekStart = ref(new Date())
 
 // 時間スロットの生成（9:00 から 20:00 まで30分間隔）
 const timeSlots = computed(() => {
   const slots = []
-  for (let hour = 9; hour <= 20; hour++) {
+  for (let hour = 10; hour <= 20; hour++) {
     slots.push(`${hour}:00`)
     if (hour < 20) {
       slots.push(`${hour}:30`)
@@ -273,14 +273,19 @@ const timeSlots = computed(() => {
 
 // 現在の週の日付を生成
 const weekDates = computed(() => {
+  const start = currentWeekStart.value
+  const end = new Date(start)
+  end.setDate(end.getDate() + 6) // 本日から6日後（合計7日間）
   return eachDayOfInterval({
-    start: currentWeekStart.value,
-    end: endOfWeek(currentWeekStart.value, { weekStartsOn: 1 }),
+    start,
+    end,
   })
 })
 
 const currentWeekEnd = computed(() => {
-  return endOfWeek(currentWeekStart.value, { weekStartsOn: 1 })
+  const end = new Date(currentWeekStart.value)
+  end.setDate(end.getDate() + 6) // 本日から6日後（合計7日間）
+  return end
 })
 
 // 日付のフォーマット
@@ -355,7 +360,14 @@ const fetchReservations = async () => {
       const customerPromises = Array.from(customerIds).map(async (customerId) => {
         const customerDoc = await getDoc(doc(db, 'customers', customerId))
         if (customerDoc.exists()) {
-          return [customerId, customerDoc.data()]
+          const data = customerDoc.data()
+          return [
+            customerId,
+            {
+              name: `${data.lastName || ''} ${data.firstName || ''}`.trim(),
+              ...data,
+            },
+          ]
         }
         return [customerId, { name: '不明' }]
       })
@@ -608,16 +620,7 @@ const editReservation = (id) => {
 
 // 施術履歴追加
 const addTreatmentHistory = (reservation) => {
-  const treatmentDate = reservation.dateTime.toDate()
-  const encodedDateTime = encodeURIComponent(treatmentDate.toISOString())
-
-  router.push({
-    path: `/addhistory/${reservation.customerId}`,
-    query: {
-      datetime: encodedDateTime,
-      menu: encodeURIComponent(reservation.menu),
-    },
-  })
+  router.push(`/history/${reservation.customerId}`)
   selectedReservation.value = null
 }
 
@@ -663,6 +666,9 @@ onMounted(() => {
   if (weekStartParam) {
     const decodedWeekStart = decodeURIComponent(weekStartParam)
     currentWeekStart.value = new Date(decodedWeekStart)
+  } else {
+    // クエリパラメータがない場合は本日の日付を設定
+    currentWeekStart.value = new Date()
   }
 
   fetchReservations()

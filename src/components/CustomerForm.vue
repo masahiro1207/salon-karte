@@ -82,7 +82,7 @@ import { ref, onMounted } from 'vue'
 import { db } from '../firebase'
 import { collection, addDoc, serverTimestamp, getDocs } from 'firebase/firestore'
 import { useRouter } from 'vue-router'
-import { toKatakana } from '@koozaki/romaji-conv'
+import { toKatakana } from 'wanakana'
 
 const customer = ref({
   lastName: '',
@@ -96,6 +96,11 @@ const customer = ref({
 const router = useRouter()
 const existingCustomers = ref([])
 
+// 初期化
+onMounted(async () => {
+  await fetchCustomers()
+})
+
 // 顧客データを取得
 const fetchCustomers = async () => {
   try {
@@ -108,10 +113,6 @@ const fetchCustomers = async () => {
     console.error('Error fetching customers: ', e)
   }
 }
-
-onMounted(async () => {
-  await fetchCustomers()
-})
 
 // 重複チェック
 const checkDuplicates = () => {

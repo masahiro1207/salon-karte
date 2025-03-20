@@ -199,7 +199,14 @@ onMounted(async () => {
   try {
     const customerSnapshot = await getDocs(collection(db, 'customers'))
     customers.value = customerSnapshot.docs
-      .map((doc) => ({ id: doc.id, ...doc.data() }))
+      .map((doc) => {
+        const data = doc.data()
+        return {
+          id: doc.id,
+          name: `${data.lastName || ''} ${data.firstName || ''}`.trim(),
+          ...data,
+        }
+      })
       .sort((a, b) => a.kana.localeCompare(b.kana, 'ja'))
     const menuSnapshot = await getDocs(collection(db, 'menus'))
     menus.value = menuSnapshot.docs

@@ -234,9 +234,10 @@
 import { ref, onMounted, computed } from 'vue'
 import { db } from '../firebase'
 import { collection, getDocs, deleteDoc, doc, query, orderBy, getDoc } from 'firebase/firestore'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 
 const router = useRouter()
+const route = useRoute()
 const sales = ref([])
 const customers = ref([])
 const menus = ref([])
@@ -399,6 +400,23 @@ const formatTime = (dateTime) => {
 
 onMounted(async () => {
   try {
+    // URLクエリパラメータからデータを取得
+    if (route.query.customerId) {
+      selectedCustomer.value = route.query.customerId
+    }
+    if (route.query.startDate) {
+      startDate.value = route.query.startDate
+    }
+    if (route.query.endDate) {
+      endDate.value = route.query.endDate
+    }
+    if (route.query.selectedMenu) {
+      selectedMenu.value = route.query.selectedMenu
+    }
+    if (route.query.selectedStaff) {
+      selectedStaff.value = route.query.selectedStaff
+    }
+
     const q = query(collection(db, 'sales'), orderBy('createAt', 'desc'))
     const querySnapshot = await getDocs(q)
     sales.value = []
@@ -414,7 +432,8 @@ onMounted(async () => {
     const customerDocs = await Promise.all(customerPromises)
     customerDocs.forEach((customerDoc) => {
       if (customerDoc.exists()) {
-        customerMap[customerDoc.id] = customerDoc.data().name
+        const data = customerDoc.data()
+        customerMap[customerDoc.id] = `${data.lastName || ''} ${data.firstName || ''}`.trim()
       }
     })
     const menuSnapshot = await getDocs(collection(db, 'menus'))
@@ -438,7 +457,14 @@ onMounted(async () => {
     }
     const customerSnapshot = await getDocs(collection(db, 'customers'))
     customers.value = customerSnapshot.docs
-      .map((doc) => ({ id: doc.id, ...doc.data() }))
+      .map((doc) => {
+        const data = doc.data()
+        return {
+          id: doc.id,
+          name: `${data.lastName || ''} ${data.firstName || ''}`.trim(),
+          ...data,
+        }
+      })
       .sort((a, b) => a.kana.localeCompare(b.kana, 'ja'))
   } catch (e) {
     console.error('Error getting documents: ', e)
