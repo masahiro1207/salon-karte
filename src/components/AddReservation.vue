@@ -34,9 +34,9 @@
             >
               <div class="flex justify-between items-center">
                 <div>
-                  <div class="font-medium">{{ customer.lastName }}{{ customer.firstName }}</div>
+                  <div class="font-medium">{{ customer.name }}</div>
                   <div class="text-sm text-gray-600">
-                    {{ customer.lastNameKana }}{{ customer.firstNameKana }}
+                    {{ customer.kana }}
                   </div>
                 </div>
                 <div class="text-sm text-gray-500">{{ customer.phone }}</div>
@@ -113,7 +113,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { db } from '../firebase'
-import { collection, addDoc, serverTimestamp, getDocs } from 'firebase/firestore'
+import { collection, addDoc, serverTimestamp, getDocs, Timestamp } from 'firebase/firestore'
 
 const router = useRouter()
 const route = useRoute()
@@ -143,10 +143,8 @@ const fetchCustomers = async () => {
       const data = doc.data()
       return {
         id: doc.id,
-        lastName: data.lastName || '',
-        firstName: data.firstName || '',
-        lastNameKana: data.lastNameKana || '',
-        firstNameKana: data.firstNameKana || '',
+        name: data.name || '',
+        kana: data.kana || '',
         phone: data.phone || '',
         email: data.email || '',
       }
@@ -179,19 +177,11 @@ const filteredCustomers = computed(() => {
   if (!searchQuery.value) return []
   const query = searchQuery.value.toLowerCase()
   return customers.value.filter((customer) => {
-    const lastName = customer.lastName?.toLowerCase() || ''
-    const firstName = customer.firstName?.toLowerCase() || ''
-    const lastNameKana = customer.lastNameKana?.toLowerCase() || ''
-    const firstNameKana = customer.firstNameKana?.toLowerCase() || ''
+    const name = customer.name?.toLowerCase() || ''
+    const kana = customer.kana?.toLowerCase() || ''
     const phone = customer.phone?.toLowerCase() || ''
 
-    return (
-      lastName.includes(query) ||
-      firstName.includes(query) ||
-      lastNameKana.includes(query) ||
-      firstNameKana.includes(query) ||
-      phone.includes(query)
-    )
+    return name.includes(query) || kana.includes(query) || phone.includes(query)
   })
 })
 
@@ -199,8 +189,8 @@ const filteredCustomers = computed(() => {
 const selectCustomer = (customer) => {
   selectedCustomer.value = customer
   reservation.value.customerId = customer.id
-  reservation.value.customerName = `${customer.lastName}${customer.firstName}`
-  searchQuery.value = `${customer.lastName}${customer.firstName}`
+  reservation.value.customerName = customer.name
+  searchQuery.value = customer.name
 }
 
 // メニュー選択時の処理を修正
@@ -261,7 +251,7 @@ onMounted(async () => {
       reservation.value = {
         ...reservation.value,
         customerId: selectedCustomer.id,
-        customerName: `${selectedCustomer.firstName} ${selectedCustomer.lastName}`,
+        customerName: selectedCustomer.name,
       }
     }
   }
@@ -287,12 +277,13 @@ const submitForm = async () => {
     // 予約データを作成
     const reservationData = {
       customerId: reservation.value.customerId,
-      customerName: reservation.value.customerName,
-      dateTime: localDateTime,
+      customerName: selectedCustomer.value.name,
+      dateTime: Timestamp.fromDate(localDateTime),
       service: reservation.value.service,
       serviceId: reservation.value.serviceId,
       duration: reservation.value.duration,
       notes: reservation.value.notes,
+      menu: reservation.value.menu,
       createAt: serverTimestamp(),
     }
 

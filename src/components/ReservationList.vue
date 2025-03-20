@@ -259,8 +259,6 @@ const reservations = ref([])
 const selectedReservation = ref(null)
 const currentWeekStart = ref(startOfWeek(new Date(), { weekStartsOn: 1 }))
 
-const selectedDateTime = ref(new Date())
-
 // 時間スロットの生成（9:00 から 20:00 まで30分間隔）
 const timeSlots = computed(() => {
   const slots = []
@@ -660,13 +658,14 @@ const handleReservationClick = (reservation) => {
 }
 
 onMounted(() => {
-  fetchReservations()
-  // URLクエリパラメータから日時を取得
-  const dateTimeParam = route.query.datetime
-  if (dateTimeParam) {
-    const decodedDateTime = decodeURIComponent(dateTimeParam)
-    selectedDateTime.value = new Date(decodedDateTime)
+  // URLクエリパラメータから週の開始日を取得
+  const weekStartParam = route.query.weekStart
+  if (weekStartParam) {
+    const decodedWeekStart = decodeURIComponent(weekStartParam)
+    currentWeekStart.value = new Date(decodedWeekStart)
   }
+
+  fetchReservations()
 })
 </script>
 
