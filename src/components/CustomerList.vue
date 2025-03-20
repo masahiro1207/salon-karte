@@ -56,8 +56,10 @@
           >
             <div class="flex justify-between items-start mb-2">
               <div>
-                <div class="font-medium">{{ customer.name }}</div>
-                <div class="text-sm text-gray-600">{{ customer.kana }}</div>
+                <div class="font-medium">{{ customer.lastName }}{{ customer.firstName }}</div>
+                <div class="text-sm text-gray-600">
+                  {{ customer.lastNameKana }}{{ customer.firstNameKana }}
+                </div>
               </div>
               <div class="flex space-x-2">
                 <button
@@ -137,8 +139,10 @@
                 :key="customer.id"
                 class="hover:bg-gray-50 transition duration-150"
               >
-                <td class="px-4 py-3">{{ customer.name }}</td>
-                <td class="px-4 py-3 text-gray-600">{{ customer.kana }}</td>
+                <td class="px-4 py-3">{{ customer.lastName }}{{ customer.firstName }}</td>
+                <td class="px-4 py-3 text-gray-600">
+                  {{ customer.lastNameKana }}{{ customer.firstNameKana }}
+                </td>
                 <td class="px-4 py-3">{{ customer.phone }}</td>
                 <td class="px-4 py-3 text-gray-600">{{ customer.email || '未登録' }}</td>
                 <td class="px-4 py-3">
@@ -204,7 +208,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { db } from '../firebase'
-import { collection, getDocs, deleteDoc, doc, query, orderBy } from 'firebase/firestore'
+import { collection, getDocs, deleteDoc, doc, query, orderBy, where } from 'firebase/firestore'
 import { useRouter } from 'vue-router'
 import { auth } from '../firebase'
 
@@ -212,12 +216,12 @@ const router = useRouter()
 
 const customers = ref([])
 const searchQuery = ref('')
-const sortKey = ref('kana')
+const sortKey = ref('lastNameKana')
 const sortOrder = ref('asc')
 
 const columns = [
-  { key: 'name', label: '名前' },
-  { key: 'kana', label: 'カナ' },
+  { key: 'lastName', label: '名前' },
+  { key: 'lastNameKana', label: 'カナ' },
   { key: 'phone', label: '電話番号' },
   { key: 'email', label: 'メール' },
   { key: 'lastVisit', label: '最終来店日' },
@@ -276,6 +280,40 @@ const sortedCustomers = computed(() => {
   const sorted = [...filteredCustomers.value]
 
   sorted.sort((a, b) => {
+    // カナでのソートの場合
+    if (sortKey.value === 'lastNameKana') {
+      // カナを取得（新しいデータ構造と古いデータ構造の両方に対応）
+      const getKana = (customer) => {
+        // 新しいデータ構造の場合
+        if (customer.lastNameKana) {
+          // firstNameが空の場合はlastNameKanaのみを使用
+          if (!customer.firstName) {
+            return customer.lastNameKana
+          }
+          return `${customer.lastNameKana}${customer.firstNameKana}`
+        }
+        // 古いデータ構造の場合
+        if (customer.kana) {
+          return customer.kana
+        }
+        // nameフィールドがある場合（古いデータ構造）
+        if (customer.name) {
+          return customer.name
+        }
+        return ''
+      }
+
+      const aKana = getKana(a)
+      const bKana = getKana(b)
+
+      if (sortOrder.value === 'asc') {
+        return aKana > bKana ? 1 : -1
+      } else {
+        return aKana < bKana ? 1 : -1
+      }
+    }
+
+    // その他のソートの場合
     let aValue = a[sortKey.value]
     let bValue = b[sortKey.value]
 
@@ -308,7 +346,29 @@ const groupedCustomers = computed(() => {
   })
 
   sortedCustomers.value.forEach((customer) => {
-    const firstKana = customer.kana.charAt(0)
+    // カナを取得（新しいデータ構造と古いデータ構造の両方に対応）
+    const getKana = (customer) => {
+      // 新しいデータ構造の場合
+      if (customer.lastNameKana) {
+        // firstNameが空の場合はlastNameKanaのみを使用
+        if (!customer.firstName) {
+          return customer.lastNameKana
+        }
+        return `${customer.lastNameKana}${customer.firstNameKana}`
+      }
+      // 古いデータ構造の場合
+      if (customer.kana) {
+        return customer.kana
+      }
+      // nameフィールドがある場合（古いデータ構造）
+      if (customer.name) {
+        return customer.name
+      }
+      return ''
+    }
+
+    const fullKana = getKana(customer)
+    const firstKana = fullKana.charAt(0)
     let group = 'ワ'
 
     for (let i = 0; i < kanaGroups.length - 1; i++) {
@@ -339,11 +399,39 @@ const addCustomer = () => {
 }
 
 const editCustomer = (id) => {
-  router.push(`/edit/${id}`)
+  router.push(`/editcustomer/${id}`)
 }
 
-const viewHistory = (id) => {
-  router.push(`/history/${id}`)
+const viewHistory = async (id) => {
+  try {
+    // 顧客の履歴を取得
+    const historyQuery = query(
+      collection(db, 'histories'),
+      where('customerId', '==', id),
+      orderBy('dateTime', 'desc'),
+    )
+    const historySnapshot = await getDocs(historyQuery)
+    const histories = historySnapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    }))
+
+    // 最新の履歴の備考を取得
+    const latestHistory = histories[0]
+    const notes = latestHistory ? latestHistory.notes : ''
+
+    // CustomerHistory.vueに遷移し、履歴情報を渡す
+    router.push({
+      path: `/history/${id}`,
+      query: {
+        notes: encodeURIComponent(notes),
+      },
+    })
+  } catch (e) {
+    console.error('Error getting history: ', e)
+    // エラーが発生しても顧客ページに遷移
+    router.push(`/history/${id}`)
+  }
 }
 
 const deleteCustomer = async (id) => {
@@ -364,7 +452,7 @@ onMounted(async () => {
   }
 
   try {
-    const q = query(collection(db, 'customers'), orderBy('kana'))
+    const q = query(collection(db, 'customers'), orderBy('lastNameKana'), orderBy('firstNameKana'))
     const querySnapshot = await getDocs(q)
     customers.value = querySnapshot.docs.map((doc) => ({
       id: doc.id,

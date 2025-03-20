@@ -3,21 +3,43 @@
     <h2 class="text-2xl font-bold mb-4 text-charcoal-black">顧客情報編集</h2>
     <form @submit.prevent="submitForm" class="space-y-4">
       <div class="flex flex-col">
-        <label for="name" class="text-charcoal-black">名前</label>
+        <label for="lastName" class="text-charcoal-black">姓</label>
         <input
           type="text"
-          id="name"
-          v-model="customer.name"
+          id="lastName"
+          v-model="customer.lastName"
+          @input="handleLastNameChange"
           required
           class="border border-gray-300 rounded-md px-3 py-2 text-charcoal-black"
         />
       </div>
       <div class="flex flex-col">
-        <label for="kana" class="text-charcoal-black">フリガナ</label>
+        <label for="firstName" class="text-charcoal-black">名</label>
         <input
           type="text"
-          id="kana"
-          v-model="customer.kana"
+          id="firstName"
+          v-model="customer.firstName"
+          @input="handleFirstNameChange"
+          required
+          class="border border-gray-300 rounded-md px-3 py-2 text-charcoal-black"
+        />
+      </div>
+      <div class="flex flex-col">
+        <label for="lastNameKana" class="text-charcoal-black">姓（フリガナ）</label>
+        <input
+          type="text"
+          id="lastNameKana"
+          v-model="customer.lastNameKana"
+          required
+          class="border border-gray-300 rounded-md px-3 py-2 text-charcoal-black"
+        />
+      </div>
+      <div class="flex flex-col">
+        <label for="firstNameKana" class="text-charcoal-black">名（フリガナ）</label>
+        <input
+          type="text"
+          id="firstNameKana"
+          v-model="customer.firstNameKana"
           required
           class="border border-gray-300 rounded-md px-3 py-2 text-charcoal-black"
         />
@@ -58,22 +80,50 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { db } from '../firebase'
-import { getDoc, doc, updateDoc } from 'firebase/firestore' // getDoc, doc, updateDocを追加
-import { useRouter, useRoute } from 'vue-router' // useRouteを追加
+import { getDoc, doc, updateDoc } from 'firebase/firestore'
+import { useRouter, useRoute } from 'vue-router'
+import { toKatakana } from 'wanakana'
 
 const customer = ref({
-  name: '',
-  kana: '',
+  lastName: '',
+  firstName: '',
+  lastNameKana: '',
+  firstNameKana: '',
   phone: '',
   notes: '',
 })
 const router = useRouter()
-const route = useRoute() // useRouteを初期化
-const customerId = route.params.id // customerIdを取得
+const route = useRoute()
+const customerId = route.params.id
 
 // デバッグ用のログを追加
 console.log('Route params:', route.params)
 console.log('Customer ID:', customerId)
+
+// 漢字からカタカナへの変換関数
+const convertToKana = (text) => {
+  if (!text) return ''
+  try {
+    return toKatakana(text)
+  } catch (error) {
+    console.error('Error converting to kana:', error)
+    return text
+  }
+}
+
+// 姓の変更を監視
+const handleLastNameChange = () => {
+  if (customer.value.lastName) {
+    customer.value.lastNameKana = convertToKana(customer.value.lastName)
+  }
+}
+
+// 名の変更を監視
+const handleFirstNameChange = () => {
+  if (customer.value.firstName) {
+    customer.value.firstNameKana = convertToKana(customer.value.firstName)
+  }
+}
 
 const submitForm = async () => {
   try {
@@ -83,7 +133,7 @@ const submitForm = async () => {
     const docRef = doc(db, 'customers', customerId)
     await updateDoc(docRef, customer.value)
     console.log('Document updated with ID: ', customerId)
-    router.push('/customer') // 顧客一覧画面に戻る
+    router.push('/customer')
   } catch (e) {
     console.error('Error updating document: ', e)
     alert('顧客情報の更新に失敗しました')
@@ -91,7 +141,7 @@ const submitForm = async () => {
 }
 
 const goBack = () => {
-  router.push('/customer') // 顧客一覧画面に戻る
+  router.push('/customer')
 }
 
 onMounted(async () => {
