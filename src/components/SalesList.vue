@@ -282,7 +282,24 @@ const saleform = () => {
   router.push('/saleform')
 }
 const editSale = (id) => {
-  router.push(`/editsale/${id}`)
+  const sale = sales.value.find((s) => s.id === id)
+  if (sale) {
+    router.push({
+      path: `/editsale/${id}`,
+      query: {
+        customerId: sale.customerId,
+        customerName: sale.customerName,
+        dateTime: sale.dateTime.toDate ? sale.dateTime.toDate().toISOString() : sale.dateTime,
+        menu: sale.menu,
+        staff: sale.staff,
+        price: sale.price,
+        discount: sale.discount,
+        paymentMethod: sale.paymentMethod,
+        products: JSON.stringify(sale.products || []),
+        notes: sale.notes,
+      },
+    })
+  }
 }
 const deleteSale = async (id) => {
   if (confirm('本当に削除しますか？')) {
@@ -373,11 +390,19 @@ const groupedSales = computed(() => {
       groups[date].creditAmount += amount
     }
   })
+
+  // 日付ごとのグループを新しい順（降順）にソート
   return Object.entries(groups)
     .sort(([dateA], [dateB]) => new Date(dateB) - new Date(dateA))
     .map(([date, data]) => ({
       date,
       ...data,
+      // 各日付内の売上を時系列順（昇順）にソート
+      sales: data.sales.sort((a, b) => {
+        const timeA = a.dateTime.toDate ? a.dateTime.toDate() : new Date(a.dateTime)
+        const timeB = b.dateTime.toDate ? b.dateTime.toDate() : new Date(b.dateTime)
+        return timeA - timeB
+      }),
     }))
 })
 
@@ -417,11 +442,13 @@ onMounted(async () => {
       selectedStaff.value = route.query.selectedStaff
     }
 
+    // salesコレクションからデータを取得
     const q = query(collection(db, 'sales'), orderBy('createAt', 'desc'))
     const querySnapshot = await getDocs(q)
     sales.value = []
     const customerPromises = []
     const customerMap = {}
+
     for (const saleDoc of querySnapshot.docs) {
       const data = saleDoc.data()
       if (data.customerId) {
@@ -436,17 +463,30 @@ onMounted(async () => {
         customerMap[customerDoc.id] = `${data.lastName || ''} ${data.firstName || ''}`.trim()
       }
     })
+
     const menuSnapshot = await getDocs(collection(db, 'menus'))
     menus.value = menuSnapshot.docs
       .map((doc) => ({ id: doc.id, ...doc.data() }))
       .sort((a, b) => a.kana.localeCompare(b.kana, 'ja'))
+
+    // 予約データを取得
+    const reservationsSnapshot = await getDocs(collection(db, 'reservations'))
+    const reservationsMap = new Map()
+    reservationsSnapshot.forEach((doc) => {
+      const data = doc.data()
+      if (data.customerId && data.dateTime) {
+        reservationsMap.set(data.customerId, data.dateTime)
+      }
+    })
+
     for (const saleDoc of querySnapshot.docs) {
       const data = saleDoc.data()
       if (data.customerId) {
         const sale = {
           id: saleDoc.id,
           ...data,
-          dateTime: data.dateTime,
+          // 予約時間がある場合は予約時間を使用し、ない場合は売上登録時間を使用
+          dateTime: reservationsMap.get(data.customerId) || data.dateTime,
           customerName: customerMap[data.customerId] || '不明',
         }
         sales.value.push(sale)
@@ -455,6 +495,7 @@ onMounted(async () => {
         }
       }
     }
+
     const customerSnapshot = await getDocs(collection(db, 'customers'))
     customers.value = customerSnapshot.docs
       .map((doc) => {
@@ -465,7 +506,11 @@ onMounted(async () => {
           ...data,
         }
       })
-      .sort((a, b) => a.kana.localeCompare(b.kana, 'ja'))
+      .sort((a, b) => {
+        const kanaA = (a.lastNameKana || '') + (a.firstNameKana || '')
+        const kanaB = (b.lastNameKana || '') + (b.firstNameKana || '')
+        return kanaA.localeCompare(kanaB, 'ja')
+      })
   } catch (e) {
     console.error('Error getting documents: ', e)
   }

@@ -340,8 +340,9 @@ const fetchCustomerInfo = async () => {
     const customerSnap = await getDoc(customerRef)
     if (customerSnap.exists()) {
       const customerData = customerSnap.data()
-      customerName.value = customerData.name
-      customerKana.value = customerData.kana
+      customerName.value = `${customerData.lastName || ''} ${customerData.firstName || ''}`.trim()
+      customerKana.value =
+        `${customerData.lastNameKana || ''} ${customerData.firstNameKana || ''}`.trim()
       customerPhone.value = customerData.phone
     }
   } catch (e) {

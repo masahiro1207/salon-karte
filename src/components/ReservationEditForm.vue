@@ -29,12 +29,16 @@
           class="border border-gray-300 rounded-md px-3 py-2 w-full text-charcoal-black"
           @change="selectCustomer"
         >
+          <option value="">顧客を選択してください</option>
           <option v-for="customer in filteredCustomers" :key="customer.id" :value="customer.id">
-            {{ customer.name }}
+            {{ customer.lastName }} {{ customer.firstName }}
           </option>
         </select>
         <p v-if="selectedCustomer" class="mt-2">
-          選択中の顧客: {{ selectedCustomer.name }} ({{ selectedCustomer.kana }})
+          選択中の顧客: {{ selectedCustomer.lastName }} {{ selectedCustomer.firstName }} ({{
+            selectedCustomer.lastNameKana
+          }}
+          {{ selectedCustomer.firstNameKana }})
         </p>
       </div>
       <div class="flex flex-col">
@@ -123,7 +127,7 @@ const reservation = ref({
 //顧客を選択した時の処理
 const selectCustomer = () => {
   const selected = customers.value.find((c) => c.id === reservation.value.customerId)
-  selectedCustomer.value = selected ? selected : null
+  selectedCustomer.value = selected || null
 }
 const goBack = () => {
   router.push('/')
@@ -133,18 +137,21 @@ const submitForm = async () => {
   try {
     const formattedReservation = {
       dateTime: Timestamp.fromDate(new Date(reservation.value.dateTime)),
-      menu: reservation.value.menu,
-      staff: reservation.value.staff,
-      notes: reservation.value.notes,
-      customerId: reservation.value.customerId, //追加
+      menu: reservation.value.menu || '',
+      staff: reservation.value.staff || '',
+      notes: reservation.value.notes || '',
+      customerId: reservation.value.customerId,
     }
+
     //顧客を編集している場合、更新する処理を追加
     if (originalCustomerId.value !== reservation.value.customerId) {
       formattedReservation.customerId = reservation.value.customerId
     }
+
     const docRef = doc(db, 'reservations', reservationId)
     await updateDoc(docRef, formattedReservation)
     console.log('Document updated with ID: ', reservationId)
+
     //予約情報の変更に伴い施術履歴の情報を更新
     const q = query(
       collection(db, 'histories'),
@@ -156,42 +163,45 @@ const submitForm = async () => {
       const historiesRef = doc.ref
       await updateDoc(historiesRef, {
         dateTime: Timestamp.fromDate(new Date(reservation.value.dateTime)),
-        menu: reservation.value.menu,
+        menu: reservation.value.menu || '',
       })
     })
 
-    router.push('/') // ここを修正
+    router.push('/')
   } catch (e) {
     console.error('Error updating document: ', e)
   }
 }
 const filteredCustomers = computed(() => {
   const keyword = searchKeyword.value.toLowerCase()
-  return customers.value.filter(
-    (customer) =>
-      customer.name.toLowerCase().includes(keyword) ||
-      customer.kana.toLowerCase().includes(keyword),
-  )
+  return customers.value.filter((customer) => {
+    const name = `${customer.lastName || ''} ${customer.firstName || ''}`.trim()
+    const kana = `${customer.lastNameKana || ''} ${customer.firstNameKana || ''}`.trim()
+    return name.toLowerCase().includes(keyword) || kana.toLowerCase().includes(keyword)
+  })
 })
 
 onMounted(async () => {
   try {
+    // 顧客データの取得
     const customerSnapshot = await getDocs(collection(db, 'customers'))
     customers.value = customerSnapshot.docs.map((doc) => ({
       id: doc.id,
       ...doc.data(),
     }))
 
+    // メニューデータの取得
     const menuSnapshot = await getDocs(collection(db, 'menus'))
     menus.value = menuSnapshot.docs
       .map((doc) => ({ id: doc.id, ...doc.data() }))
       .sort((a, b) => a.kana.localeCompare(b.kana, 'ja'))
 
+    // 予約データの取得
     const docRef = doc(db, 'reservations', reservationId)
     const docSnap = await getDoc(docRef)
     if (docSnap.exists()) {
       const data = docSnap.data()
-      originalCustomerId.value = data.customerId //オリジナルを代入
+      originalCustomerId.value = data.customerId
       reservation.value = {
         customerId: data.customerId,
         dateTime: formatDate(data.dateTime.toDate()).slice(0, 16),
@@ -200,7 +210,7 @@ onMounted(async () => {
         notes: data.notes,
       }
       // 選択された顧客を取得
-      selectCustomer()
+      await selectCustomer()
     } else {
       console.log('No such document!')
     }

@@ -8,7 +8,6 @@
           type="text"
           id="lastName"
           v-model="customer.lastName"
-          @input="handleLastNameChange"
           class="border border-gray-300 rounded-md px-3 py-2 text-charcoal-black"
           required
         />
@@ -19,7 +18,6 @@
           type="text"
           id="firstName"
           v-model="customer.firstName"
-          @input="handleFirstNameChange"
           class="border border-gray-300 rounded-md px-3 py-2 text-charcoal-black"
           required
         />
@@ -31,6 +29,7 @@
           id="lastNameKana"
           v-model="customer.lastNameKana"
           class="border border-gray-300 rounded-md px-3 py-2 text-charcoal-black"
+          placeholder="例：ヤマダ"
           required
         />
       </div>
@@ -41,6 +40,7 @@
           id="firstNameKana"
           v-model="customer.firstNameKana"
           class="border border-gray-300 rounded-md px-3 py-2 text-charcoal-black"
+          placeholder="例：タロウ"
           required
         />
       </div>
@@ -82,7 +82,7 @@ import { ref, onMounted } from 'vue'
 import { db } from '../firebase'
 import { collection, addDoc, serverTimestamp, getDocs } from 'firebase/firestore'
 import { useRouter } from 'vue-router'
-import { toKatakana } from 'wanakana'
+import { useUserStore } from '../stores/user'
 
 const customer = ref({
   lastName: '',
@@ -95,10 +95,13 @@ const customer = ref({
 
 const router = useRouter()
 const existingCustomers = ref([])
+const userStore = useUserStore()
 
 // 初期化
 onMounted(async () => {
-  await fetchCustomers()
+  if (userStore.user) {
+    await fetchCustomers()
+  }
 })
 
 // 顧客データを取得
@@ -182,31 +185,5 @@ const submitForm = async () => {
 
 const goBack = () => {
   router.push('/customer') // 一覧画面に戻る
-}
-
-// 漢字からカタカナへの変換関数
-const convertToKana = (text) => {
-  if (!text) return ''
-  try {
-    // 漢字をカタカナに変換
-    return toKatakana(text)
-  } catch (error) {
-    console.error('Error converting to kana:', error)
-    return text
-  }
-}
-
-// 姓の変更を監視
-const handleLastNameChange = () => {
-  if (customer.value.lastName) {
-    customer.value.lastNameKana = convertToKana(customer.value.lastName)
-  }
-}
-
-// 名の変更を監視
-const handleFirstNameChange = () => {
-  if (customer.value.firstName) {
-    customer.value.firstNameKana = convertToKana(customer.value.firstName)
-  }
 }
 </script>

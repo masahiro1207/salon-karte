@@ -149,21 +149,7 @@ const submitForm = async () => {
     //施術履歴の登録
     const historyRef = await addDoc(collection(db, 'histories'), formattedHistory)
     console.log('Document written with ID: ', historyRef.id)
-    // 売上データの登録
-    const formattedSale = {
-      customerId: customerId, // 顧客IDを設定
-      dateTime: Timestamp.fromDate(new Date(history.value.dateTime)), // 日時を変換
-      menu: history.value.menu, // メニューを設定
-      staff: history.value.staff, // 担当者を設定
-      price: history.value.price, // 料金を設定
-      paymentMethod: history.value.paymentMethod,
-      products: history.value.products, // 商品を設定
-      notes: history.value.notes, // 備考を設定
-      createAt: Timestamp.now(), // 作成日時を設定
-      historyId: historyRef.id,
-    }
-    //売上情報の登録
-    await addDoc(collection(db, 'sales'), formattedSale)
+
     // 顧客の最終来店日を更新
     const customerRef = doc(db, 'customers', customerId)
     await updateDoc(customerRef, {

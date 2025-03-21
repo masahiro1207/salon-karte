@@ -259,7 +259,7 @@ const submitForm = async () => {
     } else {
       // 新規履歴を追加
       formattedHistory.createAt = Timestamp.now()
-      const historyRef = await addDoc(collection(db, 'histories'), formattedHistory)
+      await addDoc(collection(db, 'histories'), formattedHistory)
 
       // 予約データに施術履歴フラグを更新
       if (history.value.reservationId) {
@@ -268,20 +268,15 @@ const submitForm = async () => {
           hasTreatmentHistory: true,
         })
       }
+
+      // 顧客の最終来店日を更新
+      const customerRef = doc(db, 'customers', history.value.customerId)
+      await updateDoc(customerRef, {
+        lastVisit: Timestamp.fromDate(new Date(history.value.dateTime)),
+      })
+
       alert('施術履歴を登録しました。')
     }
-
-    // 履歴一覧を更新
-    const historyQuery = query(
-      collection(db, 'histories'),
-      where('customerId', '==', customerId),
-      orderBy('dateTime', 'desc'),
-    )
-    const historySnapshot = await getDocs(historyQuery)
-    customerHistories.value = historySnapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    }))
 
     // フォームをリセット
     isEditing.value = false
@@ -297,9 +292,30 @@ const submitForm = async () => {
       notes: '',
       reservationId: null,
     }
+
+    // 履歴一覧を更新
+    await fetchHistories()
   } catch (e) {
     console.error('Error saving document: ', e)
     alert('施術履歴の保存に失敗しました。')
+  }
+}
+
+// 履歴一覧を取得する関数を分離
+const fetchHistories = async () => {
+  try {
+    const historyQuery = query(
+      collection(db, 'histories'),
+      where('customerId', '==', customerId),
+      orderBy('dateTime', 'desc'),
+    )
+    const historySnapshot = await getDocs(historyQuery)
+    customerHistories.value = historySnapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    }))
+  } catch (e) {
+    console.error('Error fetching histories: ', e)
   }
 }
 
@@ -341,16 +357,7 @@ onMounted(async () => {
     }
 
     // 顧客の履歴を取得
-    const historyQuery = query(
-      collection(db, 'histories'),
-      where('customerId', '==', customerId),
-      orderBy('dateTime', 'desc'),
-    )
-    const historySnapshot = await getDocs(historyQuery)
-    customerHistories.value = historySnapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    }))
+    await fetchHistories()
 
     // URLクエリパラメータから予約情報を取得
     const datetime = route.query.datetime

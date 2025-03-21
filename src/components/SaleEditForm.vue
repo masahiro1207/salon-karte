@@ -3,18 +3,18 @@
     <h2 class="text-2xl font-bold mb-4">売上編集</h2>
     <form @submit.prevent="submitForm" class="space-y-4">
       <div class="flex flex-col">
-        <label for="dateTime">日時</label>
+        <label for="sale-dateTime">日時</label>
         <input
           type="date"
-          id="dateTime"
+          id="sale-dateTime"
           v-model="sale.dateTime"
           class="border border-gray-300 rounded-md px-3 py-2 w-full text-charcoal-black"
         />
       </div>
       <div class="flex flex-col">
-        <label for="customer">顧客</label>
+        <label for="sale-customer">顧客</label>
         <select
-          id="customer"
+          id="sale-customer"
           v-model="sale.customerId"
           class="border border-gray-300 rounded-md px-3 py-2 w-full text-charcoal-black"
         >
@@ -24,9 +24,9 @@
         </select>
       </div>
       <div class="flex flex-col">
-        <label for="menu">メニュー</label>
+        <label for="sale-menu">メニュー</label>
         <select
-          id="menu"
+          id="sale-menu"
           v-model="sale.menu"
           class="border border-gray-300 rounded-md px-3 py-2 w-full text-charcoal-black"
         >
@@ -34,36 +34,36 @@
         </select>
       </div>
       <div class="flex flex-col">
-        <label for="staff">担当者</label>
+        <label for="sale-staff">担当者</label>
         <input
           type="text"
-          id="staff"
+          id="sale-staff"
           v-model="sale.staff"
           class="border border-gray-300 rounded-md px-3 py-2 w-full text-charcoal-black"
         />
       </div>
       <div class="flex flex-col">
-        <label for="price">料金</label>
+        <label for="sale-price">料金</label>
         <input
           type="number"
-          id="price"
+          id="sale-price"
           v-model="sale.price"
           class="border border-gray-300 rounded-md px-3 py-2 w-full text-charcoal-black"
         />
       </div>
       <div class="flex flex-col">
-        <label for="discount">割引</label>
+        <label for="sale-discount">割引</label>
         <input
           type="number"
-          id="discount"
+          id="sale-discount"
           v-model="sale.discount"
           class="border border-gray-300 rounded-md px-3 py-2 w-full text-charcoal-black"
         />
       </div>
       <div class="flex flex-col">
-        <label for="paymentMethod">支払い方法</label>
+        <label for="sale-paymentMethod">支払い方法</label>
         <select
-          id="paymentMethod"
+          id="sale-paymentMethod"
           v-model="sale.paymentMethod"
           class="border border-gray-300 rounded-md px-3 py-2 w-full text-charcoal-black"
         >
@@ -72,16 +72,18 @@
         </select>
       </div>
       <div class="flex flex-col">
-        <label for="products">使用商品</label>
+        <label for="sale-products">使用商品</label>
         <div v-for="(product, index) in sale.products" :key="index" class="mb-2">
           <input
             type="text"
+            :id="'sale-product-name-' + index"
             v-model="product.name"
             placeholder="商品名"
             class="border border-gray-300 rounded-md px-3 py-2 w-40 mr-2 text-charcoal-black"
           />
           <input
             type="number"
+            :id="'sale-product-count-' + index"
             v-model="product.count"
             placeholder="個数"
             class="border border-gray-300 rounded-md px-3 py-2 w-20 mr-2 text-charcoal-black"
@@ -103,9 +105,9 @@
         </button>
       </div>
       <div class="flex flex-col">
-        <label for="notes">備考</label>
+        <label for="sale-notes">備考</label>
         <textarea
-          id="notes"
+          id="sale-notes"
           v-model="sale.notes"
           class="border border-gray-300 rounded-md px-3 py-2 w-full text-charcoal-black"
         ></textarea>
@@ -207,24 +209,59 @@ onMounted(async () => {
           ...data,
         }
       })
-      .sort((a, b) => a.kana.localeCompare(b.kana, 'ja'))
+      .sort((a, b) => {
+        const kanaA = (a.lastNameKana || '') + (a.firstNameKana || '')
+        const kanaB = (b.lastNameKana || '') + (b.firstNameKana || '')
+        return kanaA.localeCompare(kanaB, 'ja')
+      })
     const menuSnapshot = await getDocs(collection(db, 'menus'))
     menus.value = menuSnapshot.docs
       .map((doc) => ({ id: doc.id, ...doc.data() }))
-      .sort((a, b) => a.kana.localeCompare(b.kana, 'ja'))
+      .sort((a, b) => {
+        const kanaA = (a.kana || '') + (a.lastNameKana || '') + (a.firstNameKana || '')
+        const kanaB = (b.kana || '') + (b.lastNameKana || '') + (b.firstNameKana || '')
+        return kanaA.localeCompare(kanaB, 'ja')
+      })
     const docRef = doc(db, 'sales', saleId)
     const docSnap = await getDoc(docRef)
 
     if (docSnap.exists()) {
       // 元のデータをoriginalSaleにコピー（ディープコピー）
-      Object.assign(originalSale.value, toRaw(docSnap.data())) //追加
+      Object.assign(originalSale.value, toRaw(docSnap.data()))
       originalSale.value.dateTime = formatDate(docSnap.data().dateTime.toDate())
-      //予約情報から引き継ぐ
-      const customerId = route.query.customerId
-      const eventId = route.query.eventId
-      if (customerId) {
-        originalSale.value.customerId = customerId
+
+      // クエリパラメータからデータを取得
+      const queryData = route.query
+      if (queryData.customerId) {
+        originalSale.value.customerId = queryData.customerId
       }
+      if (queryData.dateTime) {
+        originalSale.value.dateTime = formatDate(new Date(queryData.dateTime))
+      }
+      if (queryData.menu) {
+        originalSale.value.menu = queryData.menu
+      }
+      if (queryData.staff) {
+        originalSale.value.staff = queryData.staff
+      }
+      if (queryData.price) {
+        originalSale.value.price = Number(queryData.price)
+      }
+      if (queryData.discount) {
+        originalSale.value.discount = Number(queryData.discount)
+      }
+      if (queryData.paymentMethod) {
+        originalSale.value.paymentMethod = queryData.paymentMethod
+      }
+      if (queryData.products) {
+        originalSale.value.products = JSON.parse(queryData.products)
+      }
+      if (queryData.notes) {
+        originalSale.value.notes = queryData.notes
+      }
+
+      // 予約情報から引き継ぐ
+      const eventId = route.query.eventId
       if (eventId) {
         const reservationRef = doc(db, 'reservations', eventId)
         const reservationSnap = await getDoc(reservationRef)
@@ -232,7 +269,8 @@ onMounted(async () => {
           originalSale.value.dateTime = formatDate(reservationSnap.data().dateTime.toDate())
         }
       }
-      //historyの初期値をセット
+
+      // 初期値をセット
       sale.value = JSON.parse(JSON.stringify(originalSale.value))
     }
   } catch (e) {
