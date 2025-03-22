@@ -117,6 +117,7 @@ import { format } from 'date-fns'
 const router = useRouter()
 const route = useRoute()
 const customerId = route.params.id
+const historyId = route.params.historyId
 const customerName = ref('')
 const menus = ref([])
 const history = ref({
@@ -144,11 +145,17 @@ const submitForm = async () => {
     const formattedHistory = {
       ...history.value,
       dateTime: Timestamp.fromDate(new Date(history.value.dateTime)),
-      createAt: Timestamp.now(),
     }
-    //施術履歴の登録
-    const historyRef = await addDoc(collection(db, 'histories'), formattedHistory)
-    console.log('Document written with ID: ', historyRef.id)
+
+    // 編集時は既存のデータを更新、新規作成時は新しいデータを追加
+    if (historyId) {
+      const historyRef = doc(db, 'histories', historyId)
+      await updateDoc(historyRef, formattedHistory)
+    } else {
+      formattedHistory.createAt = Timestamp.now()
+      const historyRef = await addDoc(collection(db, 'histories'), formattedHistory)
+      console.log('Document written with ID: ', historyRef.id)
+    }
 
     // 顧客の最終来店日を更新
     const customerRef = doc(db, 'customers', customerId)
@@ -176,7 +183,8 @@ onMounted(async () => {
     menus.value = menuSnapshot.docs
       .map((doc) => ({ id: doc.id, ...doc.data() }))
       .sort((a, b) => a.kana.localeCompare(b.kana, 'ja'))
-    //顧客名を取得
+
+    // 顧客名を取得
     const docRef = doc(db, 'customers', customerId)
     const docSnap = await getDoc(docRef)
     if (docSnap.exists()) {
@@ -184,32 +192,45 @@ onMounted(async () => {
     } else {
       console.log('No such document!')
     }
+
+    // 編集時は既存のデータを取得
+    if (historyId) {
+      const historyRef = doc(db, 'histories', historyId)
+      const historySnap = await getDoc(historyRef)
+      if (historySnap.exists()) {
+        const historyData = historySnap.data()
+        history.value = {
+          ...historyData,
+          dateTime: format(historyData.dateTime.toDate(), 'yyyy-MM-dd'),
+        }
+      }
+    } else {
+      // 新規作成時はフォームデータの初期化
+      const initializeForm = () => {
+        const datetimeParam = route.query.datetime
+        const menuParam = route.query.menu
+
+        if (datetimeParam) {
+          try {
+            const datetime = new Date(decodeURIComponent(datetimeParam))
+            history.value.dateTime = format(datetime, 'yyyy-MM-dd')
+          } catch (error) {
+            console.error('Error parsing datetime:', error)
+            // エラーの場合は現在の日時を設定
+            const now = new Date()
+            history.value.dateTime = format(now, 'yyyy-MM-dd')
+          }
+        }
+
+        if (menuParam) {
+          history.value.menu = decodeURIComponent(menuParam)
+        }
+      }
+
+      initializeForm()
+    }
   } catch (e) {
     console.error('Error getting documents: ', e)
   }
-
-  // フォームデータの初期化
-  const initializeForm = () => {
-    const datetimeParam = route.query.datetime
-    const menuParam = route.query.menu
-
-    if (datetimeParam) {
-      try {
-        const datetime = new Date(decodeURIComponent(datetimeParam))
-        history.value.dateTime = format(datetime, 'yyyy-MM-dd')
-      } catch (error) {
-        console.error('Error parsing datetime:', error)
-        // エラーの場合は現在の日時を設定
-        const now = new Date()
-        history.value.dateTime = format(now, 'yyyy-MM-dd')
-      }
-    }
-
-    if (menuParam) {
-      history.value.menu = decodeURIComponent(menuParam)
-    }
-  }
-
-  initializeForm()
 })
 </script>

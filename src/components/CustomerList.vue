@@ -88,10 +88,6 @@
                 <span>{{ customer.phone }}</span>
               </div>
               <div class="flex items-center space-x-2">
-                <span class="material-icons text-gray-400 text-base">email</span>
-                <span>{{ customer.email || '未登録' }}</span>
-              </div>
-              <div class="flex items-center space-x-2">
                 <span class="material-icons text-gray-400 text-base">event</span>
                 <span
                   :class="[
@@ -144,7 +140,6 @@
                   {{ customer.lastNameKana }}{{ customer.firstNameKana }}
                 </td>
                 <td class="px-4 py-3">{{ customer.phone }}</td>
-                <td class="px-4 py-3 text-gray-600">{{ customer.email || '未登録' }}</td>
                 <td class="px-4 py-3">
                   <span
                     :class="[
@@ -208,7 +203,16 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { db } from '../firebase'
-import { collection, getDocs, deleteDoc, doc, query, orderBy, where } from 'firebase/firestore'
+import {
+  collection,
+  getDocs,
+  deleteDoc,
+  doc,
+  query,
+  orderBy,
+  where,
+  updateDoc,
+} from 'firebase/firestore'
 import { useRouter } from 'vue-router'
 import { auth } from '../firebase'
 
@@ -223,7 +227,6 @@ const columns = [
   { key: 'lastName', label: '名前' },
   { key: 'lastNameKana', label: 'カナ' },
   { key: 'phone', label: '電話番号' },
-  { key: 'email', label: 'メール' },
   { key: 'lastVisit', label: '最終来店日' },
   { key: 'notes', label: '備考' },
 ]
@@ -420,6 +423,14 @@ const viewHistory = async (id) => {
     const latestHistory = histories[0]
     const notes = latestHistory ? latestHistory.notes : ''
 
+    // 最新の履歴から最終来店日を更新
+    if (latestHistory && latestHistory.dateTime) {
+      const customerRef = doc(db, 'customers', id)
+      await updateDoc(customerRef, {
+        lastVisit: latestHistory.dateTime,
+      })
+    }
+
     // CustomerHistory.vueに遷移し、履歴情報を渡す
     router.push({
       path: `/history/${id}`,
@@ -452,12 +463,39 @@ onMounted(async () => {
   }
 
   try {
+    // 顧客データを取得
     const q = query(collection(db, 'customers'), orderBy('lastNameKana'), orderBy('firstNameKana'))
     const querySnapshot = await getDocs(q)
     customers.value = querySnapshot.docs.map((doc) => ({
       id: doc.id,
       ...doc.data(),
     }))
+
+    // 予約データを取得
+    const reservationsSnapshot = await getDocs(collection(db, 'reservations'))
+    const reservationsMap = new Map()
+    reservationsSnapshot.forEach((doc) => {
+      const data = doc.data()
+      if (data.customerId && data.dateTime) {
+        // 予約時間を保存（customerIdをキーとして使用）
+        reservationsMap.set(data.customerId, data.dateTime)
+      }
+    })
+
+    // 各顧客の最終来店日を更新
+    const updatePromises = customers.value.map(async (customer) => {
+      if (reservationsMap.has(customer.id)) {
+        const customerRef = doc(db, 'customers', customer.id)
+        await updateDoc(customerRef, {
+          lastVisit: reservationsMap.get(customer.id),
+        })
+        // ローカルのデータも更新
+        customer.lastVisit = reservationsMap.get(customer.id)
+      }
+    })
+
+    // すべての更新を待つ
+    await Promise.all(updatePromises)
   } catch (e) {
     console.error('Error getting documents: ', e)
   }

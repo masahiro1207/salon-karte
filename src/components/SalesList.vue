@@ -475,6 +475,7 @@ onMounted(async () => {
     reservationsSnapshot.forEach((doc) => {
       const data = doc.data()
       if (data.customerId && data.dateTime) {
+        // 予約時間を保存（customerIdをキーとして使用）
         reservationsMap.set(data.customerId, data.dateTime)
       }
     })
@@ -489,9 +490,12 @@ onMounted(async () => {
           dateTime: reservationsMap.get(data.customerId) || data.dateTime,
           customerName: customerMap[data.customerId] || '不明',
         }
-        sales.value.push(sale)
-        if (!staffs.value.includes(data.staff)) {
-          staffs.value.push(data.staff)
+        // 空のデータは追加しない
+        if (sale.menu || sale.staff || sale.price) {
+          sales.value.push(sale)
+          if (!staffs.value.includes(data.staff)) {
+            staffs.value.push(data.staff)
+          }
         }
       }
     }

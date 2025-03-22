@@ -298,12 +298,18 @@ const submitForm = async () => {
     // 予約一覧ページに戻る際に、予約が作成された週の日付を渡す
     const reservationDate = new Date(localDateTime)
     const weekStart = new Date(reservationDate)
-    weekStart.setDate(reservationDate.getDate() - reservationDate.getDay() + 1) // 月曜日に設定
+    // 月曜日を週の開始日として設定（日曜日は0、月曜日は1、...）
+    const dayOfWeek = weekStart.getDay()
+    const diff = dayOfWeek === 0 ? 6 : dayOfWeek - 1 // 日曜日の場合は6日戻る
+    weekStart.setDate(reservationDate.getDate() - diff)
+
+    // 日付をISO文字列に変換
+    const weekStartISO = weekStart.toISOString().split('T')[0]
 
     router.push({
       path: '/reservations',
       query: {
-        weekStart: weekStart.toISOString(),
+        weekStart: weekStartISO,
       },
     })
   } catch (e) {
