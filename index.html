@@ -35,8 +35,13 @@
           return
         }
 
-        // ログインページ以外でbasePathが含まれる場合のみリダイレクト
-        if (currentPath.startsWith(basePath) && !hash.includes('/login')) {
+        // ログインページの場合は処理しない
+        if (hash.includes('/login')) {
+          return
+        }
+
+        // basePathが含まれる場合のみリダイレクト
+        if (currentPath.startsWith(basePath)) {
           const newPath = currentPath.replace(basePath, '/')
           window.history.replaceState(null, null, newPath + hash)
         }

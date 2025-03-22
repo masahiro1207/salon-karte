@@ -89,6 +89,20 @@ export default defineConfig({
           'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
           'Access-Control-Allow-Headers': 'Content-Type, Authorization'
         }
+      },
+      '/salon-karte': {
+        target: 'http://localhost:5173',
+        changeOrigin: true,
+        secure: false,
+        rewrite: (path) => path.replace(/^\/salon-karte/, ''),
+        headers: {
+          'Cross-Origin-Opener-Policy': 'same-origin-allow-popups',
+          'Cross-Origin-Embedder-Policy': 'credentialless',
+          'Cross-Origin-Resource-Policy': 'cross-origin',
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+          'Access-Control-Allow-Headers': 'Content-Type, Authorization'
+        }
       }
     }
   }
