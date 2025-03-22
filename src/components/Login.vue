@@ -15,6 +15,9 @@
 import { ref } from 'vue'
 import { auth, googleAuthProvider } from '../firebase'
 import { signInWithPopup } from 'firebase/auth'
+import { useRouter } from 'vue-router'
+
+const router = useRouter()
 
 // コンポーネント名を定義
 defineOptions({
@@ -28,6 +31,8 @@ const signInWithGoogle = async () => {
     const result = await signInWithPopup(auth, googleAuthProvider)
     // ログイン成功時の処理
     console.log('ログイン:', result.user)
+    // ReservationList画面に遷移
+    router.push('/reservations')
   } catch (err) {
     // ログイン失敗時の処理
     error.value = err.message
