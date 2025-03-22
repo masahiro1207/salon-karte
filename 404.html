@@ -4,20 +4,30 @@
     <meta charset="utf-8" />
     <title>Salon Karte</title>
     <script>
-      // 現在のURLを取得
-      const currentPath = window.location.pathname
+      ;(function () {
+        const basePath = '/salon-karte/'
+        const currentPath = window.location.pathname
 
-      // ベースパスを設定
-      const basePath = '/salon-karte/'
+        // ベースパスで始まっていない場合、ベースパスを追加
+        if (!currentPath.startsWith(basePath)) {
+          const newPath = basePath + currentPath.substring(1)
+          window.location.replace(newPath)
+          return
+        }
 
-      // 現在のURLがベースパスで始まっていない場合、ベースパスを追加
-      if (!currentPath.startsWith(basePath)) {
-        const newPath = basePath + currentPath.substring(1)
-        window.location.replace(newPath)
-      } else {
-        // ベースパスで始まっている場合は、index.htmlにリダイレクト
-        window.location.replace(basePath + 'index.html')
-      }
+        // ベースパスで始まっている場合、index.htmlにリダイレクト
+        const pathWithoutBase = currentPath.substring(basePath.length)
+        if (pathWithoutBase && pathWithoutBase !== 'index.html') {
+          window.location.replace(basePath + 'index.html')
+          return
+        }
+
+        // それ以外の場合は404ページを表示
+        document.body.innerHTML =
+          '<h1>404 - ページが見つかりません</h1><p>トップページに<a href="' +
+          basePath +
+          '">戻る</a></p>'
+      })()
     </script>
   </head>
   <body>
