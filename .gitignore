@@ -31,3 +31,4 @@ coverage
 
 .env
 .env.production
+service-account-key.json
