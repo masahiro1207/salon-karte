@@ -7,7 +7,8 @@
       </div>
     </div>
     <div v-else>
-      <div v-if="userStore.user" class="p-4 sm:p-10">
+      <RouterView v-if="!userStore.user" />
+      <div v-else class="p-4 sm:p-10">
         <!-- モバイルメニュー -->
         <div class="sm:hidden">
           <button
@@ -79,9 +80,6 @@
           </button>
         </div>
 
-        <RouterView />
-      </div>
-      <div v-else>
         <RouterView />
       </div>
     </div>
