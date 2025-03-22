@@ -3,6 +3,7 @@ import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import vueDevTools from 'vite-plugin-vue-devtools'
 import fs from 'fs'
+import path from 'path'
 
 export default defineConfig({
   plugins: [
@@ -28,6 +29,9 @@ export default defineConfig({
     writeBundle: {
       async handler() {
         fs.copyFileSync('404.html', 'dist/404.html')
+        if (fs.existsSync('public/favicon.ico')) {
+          fs.copyFileSync('public/favicon.ico', 'dist/favicon.ico')
+        }
       }
     }
   },
