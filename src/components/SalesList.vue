@@ -483,18 +483,24 @@ onMounted(async () => {
     for (const saleDoc of querySnapshot.docs) {
       const data = saleDoc.data()
       if (data.customerId) {
-        const sale = {
-          id: saleDoc.id,
-          ...data,
-          // 予約時間がある場合は予約時間を使用し、ない場合は売上登録時間を使用
-          dateTime: reservationsMap.get(data.customerId) || data.dateTime,
-          customerName: customerMap[data.customerId] || '不明',
-        }
-        // 空のデータは追加しない
-        if (sale.menu || sale.staff || sale.price) {
-          sales.value.push(sale)
-          if (!staffs.value.includes(data.staff)) {
-            staffs.value.push(data.staff)
+        const customerDoc = await getDoc(doc(db, 'customers', data.customerId))
+        if (customerDoc.exists()) {
+          const customerData = customerDoc.data()
+          const customerName =
+            `${customerData.lastName || ''} ${customerData.firstName || ''}`.trim()
+          if (customerName) {
+            const sale = {
+              id: saleDoc.id,
+              ...data,
+              dateTime: reservationsMap.get(data.customerId) || data.dateTime,
+              customerName: customerName,
+            }
+            if (sale.menu || sale.staff || sale.price) {
+              sales.value.push(sale)
+              if (!staffs.value.includes(data.staff)) {
+                staffs.value.push(data.staff)
+              }
+            }
           }
         }
       }
