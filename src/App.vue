@@ -1,6 +1,12 @@
 <template>
   <div class="bg-color2 min-h-screen text-charcoal-black">
-    <div v-if="userStore.user" class="p-4 sm:p-10">
+    <div v-if="isLoading" class="flex items-center justify-center min-h-screen bg-smoke-gray p-4">
+      <div class="text-center">
+        <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-black mx-auto"></div>
+        <p class="mt-4">読み込み中...</p>
+      </div>
+    </div>
+    <div v-else-if="userStore.user" class="p-4 sm:p-10">
       <!-- モバイルメニュー -->
       <div class="sm:hidden">
         <button
@@ -78,16 +84,16 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import Login from './components/Login.vue'
 import { useUserStore } from './stores/user'
-import { onMounted } from 'vue'
 import { auth } from './firebase'
 import { onAuthStateChanged, signOut } from 'firebase/auth'
 import { RouterLink } from 'vue-router'
 
 const userStore = useUserStore()
 const isMenuOpen = ref(false)
+const isLoading = ref(true)
 
 const logout = async () => {
   try {
@@ -101,8 +107,14 @@ const logout = async () => {
 }
 
 onMounted(() => {
-  onAuthStateChanged(auth, (currentUser) => {
+  const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
     userStore.setUser(currentUser)
+    isLoading.value = false
+  })
+
+  // コンポーネントのアンマウント時にリスナーを解除
+  onUnmounted(() => {
+    unsubscribe()
   })
 })
 </script>
