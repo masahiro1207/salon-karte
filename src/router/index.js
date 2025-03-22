@@ -5,7 +5,6 @@ import ReservationList from '../components/ReservationList.vue'
 import CustomerList from '../components/CustomerList.vue'
 import SalesList from '../components/SalesList.vue'
 import AddReservation from '../components/AddReservation.vue'
-import TreatmentHistory from '../components/TreatmentHistory.vue'
 import SaleForm from '../components/SaleForm.vue'
 
 const router = createRouter({
@@ -39,12 +38,6 @@ const router = createRouter({
       path: '/addreservation',
       name: 'addreservation',
       component: AddReservation,
-      meta: { requiresAuth: true }
-    },
-    {
-      path: '/history/:id',
-      name: 'history',
-      component: TreatmentHistory,
       meta: { requiresAuth: true }
     },
     {
