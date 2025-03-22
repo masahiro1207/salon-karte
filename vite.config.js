@@ -2,6 +2,7 @@ import { fileURLToPath, URL } from 'node:url'
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import vueDevTools from 'vite-plugin-vue-devtools'
+import fs from 'fs'
 
 export default defineConfig({
   plugins: [
@@ -24,6 +25,11 @@ export default defineConfig({
         entryFileNames: 'assets/[name].[hash].js',
         chunkFileNames: 'assets/[name].[hash].js',
         assetFileNames: 'assets/[name].[hash].[ext]'
+      }
+    },
+    writeBundle: {
+      async handler() {
+        fs.copyFileSync('404.html', 'dist/404.html')
       }
     }
   },

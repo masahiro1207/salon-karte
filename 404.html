@@ -1,0 +1,26 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Salon Karte</title>
+    <script>
+      // 現在のURLを取得
+      const currentPath = window.location.pathname
+
+      // ベースパスを設定
+      const basePath = '/salon-karte/'
+
+      // 現在のURLがベースパスで始まっていない場合、ベースパスを追加
+      if (!currentPath.startsWith(basePath)) {
+        const newPath = basePath + currentPath.substring(1)
+        window.location.replace(newPath)
+      } else {
+        // ベースパスで始まっている場合は、index.htmlにリダイレクト
+        window.location.replace(basePath + 'index.html')
+      }
+    </script>
+  </head>
+  <body>
+    <p>リダイレクト中...</p>
+  </body>
+</html>
