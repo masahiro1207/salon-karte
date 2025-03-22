@@ -79,7 +79,16 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { db } from '../firebase'
-import { collection, getDocs, doc, getDoc, deleteDoc, query, orderBy, where } from 'firebase/firestore'
+import {
+  collection,
+  getDocs,
+  doc,
+  getDoc,
+  deleteDoc,
+  query,
+  orderBy,
+  where,
+} from 'firebase/firestore'
 import { useRouter, useRoute } from 'vue-router'
 
 const histories = ref([])
@@ -117,7 +126,20 @@ const addHistory = () => {
 const deleteHistory = async (id) => {
   if (confirm('本当に削除しますか？')) {
     try {
+      // 施術履歴を削除
       await deleteDoc(doc(db, 'histories', id))
+
+      // 関連する売上データを検索して削除
+      const salesQuery = query(
+        collection(db, 'sales'),
+        where('customerId', '==', customerId),
+        where('dateTime', '==', histories.value.find((h) => h.id === id).dateTime),
+      )
+      const salesSnapshot = await getDocs(salesQuery)
+      for (const saleDoc of salesSnapshot.docs) {
+        await deleteDoc(doc(db, 'sales', saleDoc.id))
+      }
+
       histories.value = histories.value.filter((history) => history.id !== id)
     } catch (e) {
       console.error('Error deleting document: ', e)
@@ -131,7 +153,7 @@ onMounted(async () => {
     const q = query(
       collection(db, 'histories'),
       where('customerId', '==', customerId),
-      orderBy('createAt', 'desc') // dateTimeの代わりにcreateAtでソート
+      orderBy('createAt', 'desc'), // dateTimeの代わりにcreateAtでソート
     )
     const querySnapshot = await getDocs(q)
 

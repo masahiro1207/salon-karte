@@ -159,19 +159,26 @@ const submitForm = async () => {
     }
     const docRef = await addDoc(collection(db, 'reservations'), formattedReservation)
     console.log('Document written with ID: ', docRef.id)
-    //施術履歴に登録する
-    const formattedHistory = {
+
+    // 施術履歴と売上データを同時に作成
+    const formattedData = {
       customerId: reservation.value.customerId,
       dateTime: Timestamp.fromDate(new Date(reservation.value.dateTime)),
       menu: reservation.value.menu,
-      staff: '',
+      staff: reservation.value.staff || '',
       price: 0,
       paymentMethod: '現金',
       products: [],
-      notes: '',
+      notes: reservation.value.notes || '',
       createAt: Timestamp.now(),
     }
-    await addDoc(collection(db, 'histories'), formattedHistory)
+
+    // 施術履歴を作成
+    await addDoc(collection(db, 'histories'), formattedData)
+
+    // 売上データを作成
+    await addDoc(collection(db, 'sales'), formattedData)
+
     router.push('/')
   } catch (e) {
     console.error('Error adding document: ', e)

@@ -233,7 +233,16 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue'
 import { db } from '../firebase'
-import { collection, getDocs, deleteDoc, doc, query, orderBy, getDoc } from 'firebase/firestore'
+import {
+  collection,
+  getDocs,
+  deleteDoc,
+  doc,
+  query,
+  orderBy,
+  getDoc,
+  where,
+} from 'firebase/firestore'
 import { useRouter, useRoute } from 'vue-router'
 
 const router = useRouter()
@@ -304,7 +313,23 @@ const editSale = (id) => {
 const deleteSale = async (id) => {
   if (confirm('本当に削除しますか？')) {
     try {
+      // 売上データを削除
       await deleteDoc(doc(db, 'sales', id))
+
+      // 関連する施術履歴を検索して削除
+      const sale = sales.value.find((s) => s.id === id)
+      if (sale) {
+        const historiesQuery = query(
+          collection(db, 'histories'),
+          where('customerId', '==', sale.customerId),
+          where('dateTime', '==', sale.dateTime),
+        )
+        const historiesSnapshot = await getDocs(historiesQuery)
+        for (const historyDoc of historiesSnapshot.docs) {
+          await deleteDoc(doc(db, 'histories', historyDoc.id))
+        }
+      }
+
       sales.value = sales.value.filter((sale) => sale.id !== id)
     } catch (e) {
       console.error('Error deleting document: ', e)
