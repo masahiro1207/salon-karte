@@ -18,7 +18,7 @@ import HistoryEditForm from '../components/HistoryEditForm.vue'
 import AddHistory from '../components/AddHistory.vue'
 
 const router = createRouter({
-  history: createWebHashHistory('/salon-karte/'),
+  history: createWebHashHistory(),
   routes: [
     {
       path: '/',
