@@ -76,11 +76,11 @@ export default defineConfig({
           'Access-Control-Allow-Headers': 'Content-Type, Authorization'
         }
       },
-      '/salon-karte': {
-        target: 'http://localhost:5173',
+      '/__/auth/iframe': {
+        target: 'https://salon-chillo.firebaseapp.com',
         changeOrigin: true,
         secure: false,
-        rewrite: (path) => path.replace(/^\/salon-karte/, ''),
+        rewrite: (path) => path.replace(/^\/__\/auth\/iframe/, ''),
         headers: {
           'Cross-Origin-Opener-Policy': 'same-origin-allow-popups',
           'Cross-Origin-Embedder-Policy': 'credentialless',

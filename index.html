@@ -24,13 +24,21 @@
         }
       })(window.location)
 
-      // 認証後のリダイレクト処理
+      // 認証状態の確認とリダイレクト処理
       window.addEventListener('load', function () {
         const currentPath = window.location.pathname
         const basePath = '/salon-karte/'
-        if (currentPath.startsWith(basePath)) {
+        const hash = window.location.hash
+
+        // 認証関連のパスの場合は処理しない
+        if (currentPath.includes('/__/auth/')) {
+          return
+        }
+
+        // ログインページ以外でbasePathが含まれる場合のみリダイレクト
+        if (currentPath.startsWith(basePath) && !hash.includes('/login')) {
           const newPath = currentPath.replace(basePath, '/')
-          window.history.replaceState(null, null, newPath)
+          window.history.replaceState(null, null, newPath + hash)
         }
       })
     </script>
