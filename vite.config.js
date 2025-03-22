@@ -45,7 +45,10 @@ export default defineConfig({
         headers: {
           'Cross-Origin-Opener-Policy': 'same-origin-allow-popups',
           'Cross-Origin-Embedder-Policy': 'credentialless',
-          'Cross-Origin-Resource-Policy': 'cross-origin'
+          'Cross-Origin-Resource-Policy': 'cross-origin',
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+          'Access-Control-Allow-Headers': 'Content-Type, Authorization'
         },
         configure: (proxy) => {
           proxy.on('error', (err) => {
@@ -57,6 +60,20 @@ export default defineConfig({
           proxy.on('proxyRes', (proxyRes, req) => {
             console.log('Received Response from the Target:', proxyRes.statusCode, req.url)
           })
+        }
+      },
+      '/__/auth/handler': {
+        target: 'https://salon-chillo.firebaseapp.com',
+        changeOrigin: true,
+        secure: false,
+        rewrite: (path) => path.replace(/^\/__\/auth\/handler/, ''),
+        headers: {
+          'Cross-Origin-Opener-Policy': 'same-origin-allow-popups',
+          'Cross-Origin-Embedder-Policy': 'credentialless',
+          'Cross-Origin-Resource-Policy': 'cross-origin',
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+          'Access-Control-Allow-Headers': 'Content-Type, Authorization'
         }
       }
     }
