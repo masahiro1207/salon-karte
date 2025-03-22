@@ -1,39 +1,30 @@
-import { createRouter, createWebHashHistory } from 'vue-router'
-import HistoryList from '../components/HistoryList.vue'
-import HistoryForm from '../components/HistoryForm.vue'
-import CustomerEditForm from '../components/CustomerEditForm.vue'
-import ReservationList from '../components/ReservationList.vue'
-import ReservationEditForm from '../components/ReservationEditForm.vue'
-import AddMenu from '../components/AddMenu.vue'
-import SalesList from '../components/SalesList.vue'
-import SaleForm from '../components/SaleForm.vue'
-import SaleEditForm from '../components/SaleEditForm.vue'
-import CustomerList from '../components/CustomerList.vue'
-import AddReservation from '../components/AddReservation.vue'
-import CustomerHistory from '../components/CustomerHistory.vue'
+import { createRouter, createWebHistory } from 'vue-router'
+import { useUserStore } from '../stores/user'
 import Login from '../components/Login.vue'
-import AboutView from '../views/AboutView.vue'
-import AddCustomerView from '../views/AddCustomerView.vue'
-import HistoryEditForm from '../components/HistoryEditForm.vue'
-import AddHistory from '../components/AddHistory.vue'
+import ReservationList from '../components/ReservationList.vue'
+import CustomerList from '../components/CustomerList.vue'
+import SalesList from '../components/SalesList.vue'
+import AddReservation from '../components/AddReservation.vue'
+import EditReservation from '../components/EditReservation.vue'
+import CustomerDetail from '../components/CustomerDetail.vue'
+import AddCustomer from '../components/AddCustomer.vue'
+import EditCustomer from '../components/EditCustomer.vue'
+import TreatmentHistory from '../components/TreatmentHistory.vue'
+import SaleForm from '../components/SaleForm.vue'
 
 const router = createRouter({
-  history: createWebHashHistory(),
+  history: createWebHistory('/salon-karte/'),
   routes: [
     {
       path: '/',
-      redirect: '/reservations'
+      name: 'login',
+      component: Login,
+      meta: { requiresAuth: false }
     },
     {
       path: '/reservations',
       name: 'reservations',
       component: ReservationList,
-      meta: { requiresAuth: true }
-    },
-    {
-      path: '/addreservation',
-      name: 'addreservation',
-      component: AddReservation,
       meta: { requiresAuth: true }
     },
     {
@@ -43,68 +34,45 @@ const router = createRouter({
       meta: { requiresAuth: true }
     },
     {
-      path: '/addcustomer',
-      name: 'addcustomer',
-      component: AddCustomerView,
+      path: '/sales',
+      name: 'sales',
+      component: SalesList,
       meta: { requiresAuth: true }
     },
     {
-      path: '/editcustomer/:id',
-      name: 'editcustomer',
-      component: CustomerEditForm,
-      meta: { requiresAuth: true }
-    },
-    {
-      path: '/customerhistory/:id',
-      name: 'customerhistory',
-      component: CustomerHistory,
-      meta: { requiresAuth: true }
-    },
-    {
-      path: '/edithistory/:id',
-      name: 'edithistory',
-      component: HistoryEditForm,
-      meta: { requiresAuth: true }
-    },
-    {
-      path: '/login',
-      name: 'login',
-      component: Login
-    },
-    {
-      path: '/history',
-      name: 'history',
-      component: HistoryList,
-      meta: { requiresAuth: true }
-    },
-    {
-      path: '/addhistory/:id',
-      name: 'addhistory',
-      component: AddHistory,
-      meta: { requiresAuth: true }
-    },
-    {
-      path: '/edit',
-      name: 'edit',
-      component: CustomerEditForm,
+      path: '/addreservation',
+      name: 'addreservation',
+      component: AddReservation,
       meta: { requiresAuth: true }
     },
     {
       path: '/editreservation/:id',
       name: 'editreservation',
-      component: ReservationEditForm,
+      component: EditReservation,
       meta: { requiresAuth: true }
     },
     {
-      path: '/addmenu',
-      name: 'addmenu',
-      component: AddMenu,
+      path: '/customerdetail/:id',
+      name: 'customerdetail',
+      component: CustomerDetail,
       meta: { requiresAuth: true }
     },
     {
-      path: '/sales',
-      name: 'sales',
-      component: SalesList,
+      path: '/addcustomer',
+      name: 'addcustomer',
+      component: AddCustomer,
+      meta: { requiresAuth: true }
+    },
+    {
+      path: '/editcustomer/:id',
+      name: 'editcustomer',
+      component: EditCustomer,
+      meta: { requiresAuth: true }
+    },
+    {
+      path: '/history/:id',
+      name: 'history',
+      component: TreatmentHistory,
       meta: { requiresAuth: true }
     },
     {
@@ -112,39 +80,18 @@ const router = createRouter({
       name: 'saleform',
       component: SaleForm,
       meta: { requiresAuth: true }
-    },
-    {
-      path: '/editsale/:id',
-      name: 'editsale',
-      component: SaleEditForm,
-      meta: { requiresAuth: true }
-    },
-    {
-      path: '/about',
-      name: 'about',
-      component: AboutView,
-      meta: { requiresAuth: true }
-    },
-    {
-      path: '/history/:id',
-      name: 'CustomerHistory',
-      component: CustomerHistory,
-      meta: { requiresAuth: true }
-    },
-    {
-      path: '/:pathMatch(.*)*',
-      redirect: '/reservations'
     }
-  ],
+  ]
 })
 
-// ナビゲーションガード
 router.beforeEach((to, from, next) => {
+  const userStore = useUserStore()
   const requiresAuth = to.matched.some(record => record.meta.requiresAuth)
-  const isAuthenticated = localStorage.getItem('user')
 
-  if (requiresAuth && !isAuthenticated) {
-    next('/login')
+  if (requiresAuth && !userStore.user) {
+    next('/')
+  } else if (to.path === '/' && userStore.user) {
+    next('/reservations')
   } else {
     next()
   }
