@@ -118,9 +118,6 @@ import {
   Timestamp,
   query,
   where,
-  getDocs as firestoreGetDocs,
-  deleteDoc,
-  addDoc,
 } from 'firebase/firestore'
 import { useRouter, useRoute } from 'vue-router'
 
@@ -189,7 +186,7 @@ const submitForm = async () => {
   try {
     // 履歴データを更新
     const historyRef = doc(db, 'histories', historyId)
-    await updateDoc(historyRef, {
+    const formattedHistory = {
       customerId: history.value.customerId,
       dateTime: Timestamp.fromDate(new Date(history.value.dateTime)),
       menu: history.value.menu,
@@ -198,14 +195,15 @@ const submitForm = async () => {
       paymentMethod: history.value.paymentMethod,
       products: history.value.products,
       notes: history.value.notes,
-      updateAt: new Date(),
-    })
+      updateAt: Timestamp.now(),
+    }
+    await updateDoc(historyRef, formattedHistory)
 
-    // 売上データを検索
+    // 売上データを検索して更新
     const salesQuery = query(
       collection(db, 'sales'),
       where('customerId', '==', history.value.customerId),
-      where('dateTime', '==', Timestamp.fromDate(new Date(history.value.dateTime))),
+      where('dateTime', '==', formattedHistory.dateTime),
     )
     const salesSnapshot = await getDocs(salesQuery)
 
@@ -213,30 +211,16 @@ const submitForm = async () => {
       // 既存の売上データを更新
       const saleRef = doc(db, 'sales', salesSnapshot.docs[0].id)
       await updateDoc(saleRef, {
-        customerId: history.value.customerId,
-        dateTime: Timestamp.fromDate(new Date(history.value.dateTime)),
-        menu: history.value.menu,
-        staff: history.value.staff,
-        price: Number(history.value.price),
-        paymentMethod: history.value.paymentMethod,
-        products: history.value.products,
-        notes: history.value.notes,
-        updateAt: new Date(),
-      })
-    } else {
-      // 新しい売上データを作成
-      await addDoc(collection(db, 'sales'), {
-        customerId: history.value.customerId,
-        dateTime: Timestamp.fromDate(new Date(history.value.dateTime)),
-        menu: history.value.menu,
-        staff: history.value.staff,
-        price: Number(history.value.price),
-        paymentMethod: history.value.paymentMethod,
-        products: history.value.products,
-        notes: history.value.notes,
-        createAt: new Date(),
+        ...formattedHistory,
+        updateAt: Timestamp.now(),
       })
     }
+
+    // 顧客の最終来店日を更新
+    const customerRef = doc(db, 'customers', history.value.customerId)
+    await updateDoc(customerRef, {
+      lastVisit: formattedHistory.dateTime,
+    })
 
     router.push(`/customerhistory/${history.value.customerId}`)
   } catch (e) {
