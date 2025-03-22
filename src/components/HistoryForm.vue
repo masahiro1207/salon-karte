@@ -151,31 +151,37 @@ const submitForm = async () => {
     if (historyId) {
       const historyRef = doc(db, 'histories', historyId)
       await updateDoc(historyRef, formattedHistory)
+
+      // 売上データも更新
+      const saleRef = doc(db, 'sales', historyId)
+      await updateDoc(saleRef, {
+        customerId: customerId,
+        dateTime: formattedHistory.dateTime,
+        menu: formattedHistory.menu,
+        staff: formattedHistory.staff,
+        price: formattedHistory.price,
+        paymentMethod: formattedHistory.paymentMethod,
+        products: formattedHistory.products,
+        notes: formattedHistory.notes,
+      })
     } else {
+      // 新規作成時は履歴データを追加
       formattedHistory.createAt = Timestamp.now()
       const historyRef = await addDoc(collection(db, 'histories'), formattedHistory)
       console.log('Document written with ID: ', historyRef.id)
-    }
 
-    // 売上データとしても保存
-    const saleData = {
-      customerId: customerId,
-      dateTime: formattedHistory.dateTime,
-      menu: formattedHistory.menu,
-      staff: formattedHistory.staff,
-      price: formattedHistory.price,
-      paymentMethod: formattedHistory.paymentMethod,
-      products: formattedHistory.products,
-      notes: formattedHistory.notes,
-      createAt: Timestamp.now(),
-    }
-
-    if (historyId) {
-      // 編集時は既存の売上データを更新
-      const saleRef = doc(db, 'sales', historyId)
-      await updateDoc(saleRef, saleData)
-    } else {
-      // 新規作成時は新しい売上データを追加
+      // 売上データも追加
+      const saleData = {
+        customerId: customerId,
+        dateTime: formattedHistory.dateTime,
+        menu: formattedHistory.menu,
+        staff: formattedHistory.staff,
+        price: formattedHistory.price,
+        paymentMethod: formattedHistory.paymentMethod,
+        products: formattedHistory.products,
+        notes: formattedHistory.notes,
+        createAt: Timestamp.now(),
+      }
       await addDoc(collection(db, 'sales'), saleData)
     }
 
@@ -184,9 +190,12 @@ const submitForm = async () => {
     await updateDoc(customerRef, {
       lastVisit: Timestamp.fromDate(new Date(history.value.dateTime)),
     })
-    router.push(`/history/${customerId}`) // 一覧画面に戻る
+
+    // 一覧画面に戻る
+    router.push(`/history/${customerId}`)
   } catch (e) {
     console.error('Error adding document: ', e)
+    alert('データの保存中にエラーが発生しました。')
   }
 }
 watch(
