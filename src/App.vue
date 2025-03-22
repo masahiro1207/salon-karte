@@ -110,7 +110,11 @@ const logout = async () => {
 
 onMounted(() => {
   const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-    userStore.setUser(currentUser)
+    if (currentUser) {
+      userStore.setUser(currentUser)
+    } else {
+      userStore.setUser(null)
+    }
     isLoading.value = false
   })
 

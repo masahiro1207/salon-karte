@@ -52,17 +52,6 @@ export default defineConfig({
           'Access-Control-Allow-Origin': '*',
           'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
           'Access-Control-Allow-Headers': 'Content-Type, Authorization'
-        },
-        configure: (proxy) => {
-          proxy.on('error', (err) => {
-            console.log('proxy error', err)
-          })
-          proxy.on('proxyReq', (proxyReq, req) => {
-            console.log('Sending Request to the Target:', req.method, req.url)
-          })
-          proxy.on('proxyRes', (proxyRes, req) => {
-            console.log('Received Response from the Target:', proxyRes.statusCode, req.url)
-          })
         }
       },
       '/__/auth/handler': {
@@ -84,20 +73,6 @@ export default defineConfig({
         changeOrigin: true,
         secure: false,
         rewrite: (path) => path.replace(/^\/__\/auth\/iframe/, ''),
-        headers: {
-          'Cross-Origin-Opener-Policy': 'same-origin-allow-popups',
-          'Cross-Origin-Embedder-Policy': 'credentialless',
-          'Cross-Origin-Resource-Policy': 'cross-origin',
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-          'Access-Control-Allow-Headers': 'Content-Type, Authorization'
-        }
-      },
-      '/salon-karte': {
-        target: 'http://localhost:5173',
-        changeOrigin: true,
-        secure: false,
-        rewrite: (path) => path.replace(/^\/salon-karte/, ''),
         headers: {
           'Cross-Origin-Opener-Policy': 'same-origin-allow-popups',
           'Cross-Origin-Embedder-Policy': 'credentialless',
