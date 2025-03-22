@@ -157,6 +157,28 @@ const submitForm = async () => {
       console.log('Document written with ID: ', historyRef.id)
     }
 
+    // 売上データとしても保存
+    const saleData = {
+      customerId: customerId,
+      dateTime: formattedHistory.dateTime,
+      menu: formattedHistory.menu,
+      staff: formattedHistory.staff,
+      price: formattedHistory.price,
+      paymentMethod: formattedHistory.paymentMethod,
+      products: formattedHistory.products,
+      notes: formattedHistory.notes,
+      createAt: Timestamp.now(),
+    }
+
+    if (historyId) {
+      // 編集時は既存の売上データを更新
+      const saleRef = doc(db, 'sales', historyId)
+      await updateDoc(saleRef, saleData)
+    } else {
+      // 新規作成時は新しい売上データを追加
+      await addDoc(collection(db, 'sales'), saleData)
+    }
+
     // 顧客の最終来店日を更新
     const customerRef = doc(db, 'customers', customerId)
     await updateDoc(customerRef, {
