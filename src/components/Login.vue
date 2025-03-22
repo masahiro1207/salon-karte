@@ -15,23 +15,19 @@
 import { ref } from 'vue'
 import { auth, googleAuthProvider } from '../firebase'
 import { signInWithPopup } from 'firebase/auth'
-import { useUserStore } from '../stores/user'
 
 // コンポーネント名を定義
 defineOptions({
   name: 'LoginForm',
 })
 
-const userStore = useUserStore()
 const error = ref(null)
 
 const signInWithGoogle = async () => {
   try {
     const result = await signInWithPopup(auth, googleAuthProvider)
     // ログイン成功時の処理
-    const user = result.user
-    userStore.setUser(user)
-    console.log('ログイン:', user)
+    console.log('ログイン:', result.user)
   } catch (err) {
     // ログイン失敗時の処理
     error.value = err.message
