@@ -42,14 +42,19 @@ export default defineConfig({
         changeOrigin: true,
         secure: false,
         rewrite: (path) => path.replace(/^\/__\/auth/, ''),
-        configure: (proxy, options) => {
-          proxy.on('error', (err, req, res) => {
+        headers: {
+          'Cross-Origin-Opener-Policy': 'same-origin-allow-popups',
+          'Cross-Origin-Embedder-Policy': 'credentialless',
+          'Cross-Origin-Resource-Policy': 'cross-origin'
+        },
+        configure: (proxy) => {
+          proxy.on('error', (err) => {
             console.log('proxy error', err)
           })
-          proxy.on('proxyReq', (proxyReq, req, res) => {
+          proxy.on('proxyReq', (proxyReq, req) => {
             console.log('Sending Request to the Target:', req.method, req.url)
           })
-          proxy.on('proxyRes', (proxyRes, req, res) => {
+          proxy.on('proxyRes', (proxyRes, req) => {
             console.log('Received Response from the Target:', proxyRes.statusCode, req.url)
           })
         }
