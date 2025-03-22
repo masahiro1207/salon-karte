@@ -39,8 +39,9 @@ export default defineConfig({
         changeOrigin: true,
         secure: false,
         headers: {
-          'Cross-Origin-Opener-Policy': 'same-origin',
+          'Cross-Origin-Opener-Policy': 'same-origin-allow-popups',
           'Cross-Origin-Embedder-Policy': 'credentialless',
+          'Cross-Origin-Resource-Policy': 'cross-origin',
           'Access-Control-Allow-Origin': '*'
         }
       }
