@@ -3,7 +3,6 @@ import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import vueDevTools from 'vite-plugin-vue-devtools'
 import fs from 'fs'
-import path from 'path'
 
 export default defineConfig({
   plugins: [
@@ -42,13 +41,17 @@ export default defineConfig({
         target: 'https://salon-chillo.firebaseapp.com',
         changeOrigin: true,
         secure: false,
-        headers: {
-          'Cross-Origin-Opener-Policy': 'same-origin-allow-popups',
-          'Cross-Origin-Embedder-Policy': 'credentialless',
-          'Cross-Origin-Resource-Policy': 'cross-origin',
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-          'Access-Control-Allow-Headers': 'Content-Type, Authorization'
+        rewrite: (path) => path.replace(/^\/__\/auth/, ''),
+        configure: (proxy, options) => {
+          proxy.on('error', (err, req, res) => {
+            console.log('proxy error', err)
+          })
+          proxy.on('proxyReq', (proxyReq, req, res) => {
+            console.log('Sending Request to the Target:', req.method, req.url)
+          })
+          proxy.on('proxyRes', (proxyRes, req, res) => {
+            console.log('Received Response from the Target:', proxyRes.statusCode, req.url)
+          })
         }
       }
     }
