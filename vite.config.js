@@ -35,6 +35,9 @@ export default defineConfig({
     }
   },
   server: {
+    host: true,
+    port: 5173,
+    strictPort: true,
     base: '/salon-karte/',
     proxy: {
       '/__/auth': {
