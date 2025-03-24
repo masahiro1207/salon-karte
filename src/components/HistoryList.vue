@@ -79,7 +79,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { db } from '../firebase'
-import { collection, getDocs, doc, getDoc, deleteDoc, query, orderBy, where } from 'firebase/firestore'
+import { collection, getDocs, doc, getDoc, deleteDoc, query, orderBy, where, updateDoc } from 'firebase/firestore'
 import { useRouter, useRoute } from 'vue-router'
 
 const histories = ref([])
@@ -117,8 +117,35 @@ const addHistory = () => {
 const deleteHistory = async (id) => {
   if (confirm('本当に削除しますか？')) {
     try {
+      // 削除する履歴のデータを取得
+      const historyToDelete = histories.value.find(history => history.id === id)
+
+      // 履歴を削除
       await deleteDoc(doc(db, 'histories', id))
       histories.value = histories.value.filter((history) => history.id !== id)
+
+      // 削除した履歴が最新の履歴だった場合、顧客の最終来店日を更新
+      if (historyToDelete && historyToDelete.dateTime) {
+        const remainingHistories = histories.value.filter(h => h.dateTime)
+        if (remainingHistories.length > 0) {
+          // 残りの履歴の中で最新の日時を取得
+          const latestHistory = remainingHistories.reduce((latest, current) => {
+            return current.dateTime > latest.dateTime ? current : latest
+          })
+
+          // 顧客の最終来店日を更新
+          const customerRef = doc(db, 'customers', customerId)
+          await updateDoc(customerRef, {
+            lastVisit: latestHistory.dateTime
+          })
+        } else {
+          // 履歴が全て削除された場合、最終来店日をnullに設定
+          const customerRef = doc(db, 'customers', customerId)
+          await updateDoc(customerRef, {
+            lastVisit: null
+          })
+        }
+      }
     } catch (e) {
       console.error('Error deleting document: ', e)
     }
