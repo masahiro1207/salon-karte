@@ -172,7 +172,7 @@
           <table class="w-full border-collapse table-auto min-w-[800px]">
             <thead class="bg-color1 text-white">
               <tr>
-                <th class="border border-gray-300 p-2 text-color3 w-[3%]">時間</th>
+                <th class="border border-gray-300 p-2 text-color3 w-[2%]">時間</th>
                 <th class="border border-gray-300 p-2 text-color3 w-[6%]">顧客</th>
                 <th class="border border-gray-300 p-2 text-color3 w-[8%]">メニュー</th>
                 <th class="border border-gray-300 p-2 text-color3 w-[2%]">料金</th>
@@ -185,7 +185,7 @@
             </thead>
             <tbody>
               <tr v-for="sale in group.sales" :key="sale.id" class="hover:bg-gray-50">
-                <td class="border border-gray-300 p-2">{{ formatTime(sale.dateTime) }}</td>
+                <td class="border border-gray-300 p-2  text-center">{{ formatTime(sale.dateTime) }}</td>
                 <td class="border border-gray-300 p-2 whitespace-normal">{{ sale.customerName }}</td>
                 <td class="border border-gray-300 p-2 whitespace-normal">{{ sale.menu }}</td>
                 <td class="border border-gray-300 p-2 text-right">
