@@ -1,5 +1,5 @@
 <template>
-  <div class="mx-auto p-4 sm:p-8 bg-white max-w-7xl text-charcoal-black">
+  <div class="mx-auto p-4 sm:p-8 bg-white max-w-8xl text-charcoal-black">
     <div class="flex flex-col sm:flex-row justify-between items-center mb-4 sm:mb-6 gap-4">
       <h2 class="text-xl sm:text-2xl font-bold">売上管理</h2>
       <button
@@ -135,7 +135,6 @@
             </div>
             <div class="grid grid-cols-2 gap-2 text-sm">
               <div><span class="text-gray-600">メニュー:</span> {{ sale.menu }}</div>
-              <div><span class="text-gray-600">担当者:</span> {{ sale.staff }}</div>
               <div><span class="text-gray-600">料金:</span> ¥{{ sale.price.toLocaleString() }}</div>
               <div>
                 <span class="text-gray-600">割引:</span> ¥{{
@@ -173,28 +172,26 @@
           <table class="w-full border-collapse table-auto min-w-[800px]">
             <thead class="bg-color1 text-white">
               <tr>
-                <th class="border border-gray-300 p-2 text-color3">時間</th>
-                <th class="border border-gray-300 p-2 text-color3">顧客</th>
-                <th class="border border-gray-300 p-2 text-color3">メニュー</th>
-                <th class="border border-gray-300 p-2 text-color3">担当者</th>
-                <th class="border border-gray-300 p-2 text-color3">料金</th>
-                <th class="border border-gray-300 p-2 text-color3">商品</th>
-                <th class="border border-gray-300 p-2 text-color3">割引</th>
-                <th class="border border-gray-300 p-2 text-color3">支払方法</th>
-                <th class="border border-gray-300 p-2 text-color3">備考</th>
-                <th class="border border-gray-300 p-2 text-color3">操作</th>
+                <th class="border border-gray-300 p-2 text-color3 w-[3%]">時間</th>
+                <th class="border border-gray-300 p-2 text-color3 w-[6%]">顧客</th>
+                <th class="border border-gray-300 p-2 text-color3 w-[8%]">メニュー</th>
+                <th class="border border-gray-300 p-2 text-color3 w-[2%]">料金</th>
+                <th class="border border-gray-300 p-2 text-color3 w-[4%]">商品</th>
+                <th class="border border-gray-300 p-2 text-color3 w-[4%]">割引</th>
+                <th class="border border-gray-300 p-2 text-color3 w-[7%]">支払方法</th>
+                <th class="border border-gray-300 p-2 text-color3 w-[15%]">備考</th>
+                <th class="border border-gray-300 p-2 text-color3 w-[5%]">操作</th>
               </tr>
             </thead>
             <tbody>
               <tr v-for="sale in group.sales" :key="sale.id" class="hover:bg-gray-50">
                 <td class="border border-gray-300 p-2">{{ formatTime(sale.dateTime) }}</td>
-                <td class="border border-gray-300 p-2">{{ sale.customerName }}</td>
-                <td class="border border-gray-300 p-2">{{ sale.menu }}</td>
-                <td class="border border-gray-300 p-2">{{ sale.staff }}</td>
+                <td class="border border-gray-300 p-2 whitespace-normal">{{ sale.customerName }}</td>
+                <td class="border border-gray-300 p-2 whitespace-normal">{{ sale.menu }}</td>
                 <td class="border border-gray-300 p-2 text-right">
                   ¥{{ sale.price.toLocaleString() }}
                 </td>
-                <td class="border border-gray-300 p-2">
+                <td class="border border-gray-300 p-2 whitespace-normal">
                   <div v-for="product in sale.products" :key="product.name">
                     {{ product.name }} x {{ product.count }}
                   </div>
@@ -203,7 +200,7 @@
                   ¥{{ (sale.discount || 0).toLocaleString() }}
                 </td>
                 <td class="border border-gray-300 p-2">{{ sale.paymentMethod }}</td>
-                <td class="border border-gray-300 p-2">{{ sale.notes }}</td>
+                <td class="border border-gray-300 p-2 whitespace-normal">{{ sale.notes }}</td>
                 <td class="border border-gray-300 p-2">
                   <div class="flex justify-center space-x-2">
                     <button

@@ -14,7 +14,7 @@ export default defineConfig({
       'vue': 'vue/dist/vue.esm-bundler.js'
     },
   },
-  base: '/salon-karte/',
+  base: '/',
   build: {
     outDir: 'dist',
     emptyOutDir: true,
@@ -28,7 +28,7 @@ export default defineConfig({
     }
   },
   server: {
-    base: '/salon-karte/',
+    base: '/',
     proxy: {
       '/__/auth': {
         target: 'https://salon-chillo.firebaseapp.com',
