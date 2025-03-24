@@ -471,26 +471,31 @@ onMounted(async () => {
       ...doc.data(),
     }))
 
-    // 予約データを取得
-    const reservationsSnapshot = await getDocs(collection(db, 'reservations'))
-    const reservationsMap = new Map()
-    reservationsSnapshot.forEach((doc) => {
+    // 施術履歴データを取得
+    const historiesSnapshot = await getDocs(collection(db, 'histories'))
+    const historiesMap = new Map()
+    historiesSnapshot.forEach((doc) => {
       const data = doc.data()
       if (data.customerId && data.dateTime) {
-        // 予約時間を保存（customerIdをキーとして使用）
-        reservationsMap.set(data.customerId, data.dateTime)
+        // 最新の施術履歴の日時を保存（customerIdをキーとして使用）
+        const currentDateTime = data.dateTime
+        const existingDateTime = historiesMap.get(data.customerId)
+
+        if (!existingDateTime || currentDateTime > existingDateTime) {
+          historiesMap.set(data.customerId, currentDateTime)
+        }
       }
     })
 
     // 各顧客の最終来店日を更新
     const updatePromises = customers.value.map(async (customer) => {
-      if (reservationsMap.has(customer.id)) {
+      if (historiesMap.has(customer.id)) {
         const customerRef = doc(db, 'customers', customer.id)
         await updateDoc(customerRef, {
-          lastVisit: reservationsMap.get(customer.id),
+          lastVisit: historiesMap.get(customer.id),
         })
         // ローカルのデータも更新
-        customer.lastVisit = reservationsMap.get(customer.id)
+        customer.lastVisit = historiesMap.get(customer.id)
       }
     })
 

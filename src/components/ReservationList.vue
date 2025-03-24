@@ -409,7 +409,7 @@ const fetchReservations = async () => {
           collection(db, 'histories'),
           where('customerId', '==', data.customerId),
           where('dateTime', '>=', Timestamp.fromDate(startOfDay)),
-          where('dateTime', '<=', Timestamp.fromDate(endOfDay)),
+          where('dateTime', '<=', Timestamp.fromDate(endOfDay))
         )
 
         const historySnapshot = await getDocs(historyQuery)
