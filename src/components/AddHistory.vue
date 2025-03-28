@@ -275,6 +275,22 @@ const submitForm = async () => {
         lastVisit: Timestamp.fromDate(new Date(history.value.dateTime)),
       })
 
+      // 売上データを作成
+      const saleData = {
+        customerId: history.value.customerId,
+        dateTime: Timestamp.fromDate(new Date(history.value.dateTime)),
+        menu: history.value.menu,
+        staff: history.value.staff,
+        price: Number(history.value.price),
+        paymentMethod: history.value.paymentMethod,
+        products: history.value.products.filter((p) => p.name && p.count),
+        notes: history.value.notes,
+        createAt: Timestamp.now(),
+      }
+
+      // 売上データを保存
+      await addDoc(collection(db, 'sales'), saleData)
+
       alert('施術履歴を登録しました。')
     }
 

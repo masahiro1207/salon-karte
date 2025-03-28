@@ -142,9 +142,15 @@ const goBack = () => {
 }
 const submitForm = async () => {
   try {
+    if (!history.value.dateTime) {
+      alert('日時を入力してください。')
+      return
+    }
+
     const formattedHistory = {
       ...history.value,
       dateTime: Timestamp.fromDate(new Date(history.value.dateTime)),
+      createAt: Timestamp.now(),
     }
 
     // 編集時は既存のデータを更新、新規作成時は新しいデータを追加
@@ -152,7 +158,6 @@ const submitForm = async () => {
       const historyRef = doc(db, 'histories', historyId)
       await updateDoc(historyRef, formattedHistory)
     } else {
-      formattedHistory.createAt = Timestamp.now()
       const historyRef = await addDoc(collection(db, 'histories'), formattedHistory)
       console.log('Document written with ID: ', historyRef.id)
     }
@@ -160,11 +165,20 @@ const submitForm = async () => {
     // 顧客の最終来店日を更新
     const customerRef = doc(db, 'customers', customerId)
     await updateDoc(customerRef, {
-      lastVisit: Timestamp.fromDate(new Date(history.value.dateTime)),
+      lastVisit: formattedHistory.dateTime,
     })
+
+    // 売上データも作成
+    const saleData = {
+      ...formattedHistory,
+      createAt: Timestamp.now(),
+    }
+    await addDoc(collection(db, 'sales'), saleData)
+
     router.push(`/history/${customerId}`) // 一覧画面に戻る
   } catch (e) {
     console.error('Error adding document: ', e)
+    alert('履歴の保存に失敗しました。')
   }
 }
 watch(
