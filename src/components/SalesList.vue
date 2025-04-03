@@ -173,7 +173,6 @@
           <table class="w-full border-collapse table-auto min-w-[800px]">
             <thead class="bg-color1 text-white">
               <tr>
-                <th class="border border-gray-300 p-2 text-color3 w-[2%]">時間</th>
                 <th class="border border-gray-300 p-2 text-color3 w-[4%]">顧客</th>
                 <th class="border border-gray-300 p-2 text-color3 w-[5%]">メニュー</th>
                 <th class="border border-gray-300 p-2 text-color3 w-[2%]">担当者</th>
@@ -187,8 +186,7 @@
             </thead>
             <tbody>
               <tr v-for="sale in group.sales" :key="sale.id" class="hover:bg-gray-50">
-                <td class="border border-gray-300 p-2 text-center">{{ formatTime(sale.dateTime) }}</td>
-                <td class="border border-gray-300 p-2 ">{{ sale.customerName }}</td>
+                <td class="border border-gray-300 p-2">{{ sale.customerName }}</td>
                 <td class="border border-gray-300 p-2">{{ sale.menu }}</td>
                 <td class="border border-gray-300 p-2 text-center">{{ sale.staff }}</td>
                 <td class="border border-gray-300 p-2 text-right">
@@ -469,25 +467,14 @@ onMounted(async () => {
       .map((doc) => ({ id: doc.id, ...doc.data() }))
       .sort((a, b) => a.kana.localeCompare(b.kana, 'ja'))
 
-    // 予約データを取得
-    const reservationsSnapshot = await getDocs(collection(db, 'reservations'))
-    const reservationsMap = new Map()
-    reservationsSnapshot.forEach((doc) => {
-      const data = doc.data()
-      if (data.customerId && data.dateTime) {
-        // 予約時間を保存（customerIdをキーとして使用）
-        reservationsMap.set(data.customerId, data.dateTime)
-      }
-    })
-
     for (const saleDoc of querySnapshot.docs) {
       const data = saleDoc.data()
       if (data.customerId) {
         const sale = {
           id: saleDoc.id,
           ...data,
-          // 予約時間がある場合は予約時間を使用し、ない場合は売上登録時間を使用
-          dateTime: reservationsMap.get(data.customerId) || data.dateTime,
+          // 予約時間の参照を削除し、売上登録時の日時を使用
+          dateTime: data.dateTime,
           customerName: customerMap[data.customerId] || '不明',
         }
         // 空のデータは追加しない
