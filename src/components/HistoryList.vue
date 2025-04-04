@@ -158,7 +158,7 @@ onMounted(async () => {
     const q = query(
       collection(db, 'histories'),
       where('customerId', '==', customerId),
-      orderBy('createAt', 'desc') // dateTimeの代わりにcreateAtでソート
+      orderBy('dateTime', 'desc') // createAtではなくdateTimeでソート
     )
     const querySnapshot = await getDocs(q)
 
@@ -168,18 +168,27 @@ onMounted(async () => {
       return {
         id: doc.id,
         ...data,
-        dateTime: data.dateTime, // Timestampをそのまま保持
+        dateTime: data.dateTime,
         price: data.price || 0,
         products: data.products || [],
         paymentMethod: data.paymentMethod || '現金',
       }
     })
 
+    // 最新の履歴から最終来店日を更新
+    if (histories.value.length > 0 && histories.value[0].dateTime) {
+      const customerRef = doc(db, 'customers', customerId)
+      await updateDoc(customerRef, {
+        lastVisit: histories.value[0].dateTime
+      })
+    }
+
     // 顧客名を取得
     const customerRef = doc(db, 'customers', customerId)
     const customerSnap = await getDoc(customerRef)
     if (customerSnap.exists()) {
-      customerName.value = customerSnap.data().name
+      const customerData = customerSnap.data()
+      customerName.value = `${customerData.lastName || ''}${customerData.firstName || ''}`
     }
   } catch (e) {
     console.error('Error getting documents: ', e)
