@@ -102,7 +102,115 @@
         <div class="text-lg sm:text-xl font-bold">{{ filteredSales.length }}件</div>
       </div>
     </div>
-    <div v-if="groupedSales.length > 0">
+    <div class="mb-6 flex space-x-4">
+      <button
+        @click="viewMode = 'daily'"
+        :class="[
+          'px-4 py-2 rounded-md',
+          viewMode === 'daily'
+            ? 'bg-color3 text-white'
+            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+        ]"
+      >
+        日別表示
+      </button>
+      <button
+        @click="viewMode = 'monthly'"
+        :class="[
+          'px-4 py-2 rounded-md',
+          viewMode === 'monthly'
+            ? 'bg-color3 text-white'
+            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+        ]"
+      >
+        月別表示
+      </button>
+    </div>
+    <div v-if="viewMode === 'monthly' && monthlyGroupedSales.length > 0">
+      <div v-for="group in monthlyGroupedSales" :key="group.month" class="mb-8">
+        <div class="bg-gray-100 p-4 rounded-lg mb-4">
+          <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <h3 class="text-lg font-bold">{{ group.month }}</h3>
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 w-full sm:w-auto">
+              <div class="text-sm">
+                <span class="text-gray-600">現金: </span>
+                <span class="font-bold">¥{{ group.cashAmount.toLocaleString() }}</span>
+              </div>
+              <div class="text-sm">
+                <span class="text-gray-600">クレジット: </span>
+                <span class="font-bold">¥{{ group.creditAmount.toLocaleString() }}</span>
+              </div>
+              <div class="text-sm">
+                <span class="text-gray-600">合計: </span>
+                <span class="font-bold">¥{{ group.totalAmount.toLocaleString() }}</span>
+              </div>
+              <div class="text-sm">
+                <span class="text-gray-600">件数: </span>
+                <span class="font-bold">{{ group.count }}件</span>
+              </div>
+              <div class="text-sm">
+                <span class="text-gray-600">平均: </span>
+                <span class="font-bold">¥{{ group.averageAmount.toLocaleString() }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="hidden sm:block overflow-x-auto">
+          <table class="w-full border-collapse table-auto min-w-[800px]">
+            <thead class="bg-color1 text-white">
+              <tr>
+                <th class="border border-gray-300 p-2 text-color3 w-[4%]">顧客</th>
+                <th class="border border-gray-300 p-2 text-color3 w-[5%]">メニュー</th>
+                <th class="border border-gray-300 p-2 text-color3 w-[2%]">担当者</th>
+                <th class="border border-gray-300 p-2 text-color3 w-[3%]">料金</th>
+                <th class="border border-gray-300 p-2 text-color3 w-[3%]">商品</th>
+                <th class="border border-gray-300 p-2 text-color3 w-[3%]">割引</th>
+                <th class="border border-gray-300 p-2 text-color3 w-[5%]">支払方法</th>
+                <th class="border border-gray-300 p-2 text-color3 w-[15%]">備考</th>
+                <th class="border border-gray-300 p-2 text-color3 w-[5%]">操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="sale in group.sales" :key="sale.id" class="hover:bg-gray-50">
+                <td class="border border-gray-300 p-2">{{ sale.customerName }}</td>
+                <td class="border border-gray-300 p-2">{{ sale.menu }}</td>
+                <td class="border border-gray-300 p-2 text-center">{{ sale.staff }}</td>
+                <td class="border border-gray-300 p-2 text-right">
+                  ¥{{ sale.price.toLocaleString() }}
+                </td>
+                <td class="border border-gray-300 p-2">
+                  <div v-for="product in sale.products" :key="product.name">
+                    {{ product.name }} x {{ product.count }}
+                  </div>
+                </td>
+                <td class="border border-gray-300 p-2 text-right">
+                  ¥{{ (sale.discount || 0).toLocaleString() }}
+                </td>
+                <td class="border border-gray-300 p-2">{{ sale.paymentMethod }}</td>
+                <td class="border border-gray-300 p-2">{{ sale.notes }}</td>
+                <td class="border border-gray-300 p-2">
+                  <div class="flex justify-center space-x-2">
+                    <button
+                      @click="editSale(sale.id)"
+                      class="bg-color3 hover:bg-opacity-90 px-3 py-1 rounded-md text-white text-sm"
+                    >
+                      編集
+                    </button>
+                    <button
+                      @click="deleteSale(sale.id)"
+                      class="bg-color3 hover:bg-opacity-90 px-3 py-1 rounded-md text-white text-sm"
+                    >
+                      削除
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    <div v-else-if="viewMode === 'daily' && groupedSales.length > 0">
       <div v-for="group in groupedSales" :key="group.date" class="mb-8">
         <div
           class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-2 bg-gray-100 p-4 rounded-lg gap-2"
@@ -246,6 +354,7 @@ const startDate = ref('')
 const endDate = ref('')
 const staffs = ref([])
 const selectedPaymentMethod = ref('')
+const viewMode = ref('daily')
 
 const formatDate = (input) => {
   if (input instanceof Date) {
@@ -420,6 +529,44 @@ const formatTime = (dateTime) => {
   const minutes = date.getMinutes().toString().padStart(2, '0')
   return `${hours}:${minutes}`
 }
+
+const monthlyGroupedSales = computed(() => {
+  const groups = {}
+
+  filteredSales.value.forEach((sale) => {
+    const date = sale.dateTime.toDate ? sale.dateTime.toDate() : new Date(sale.dateTime)
+    const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+
+    if (!groups[monthKey]) {
+      groups[monthKey] = {
+        sales: [],
+        totalAmount: 0,
+        cashAmount: 0,
+        creditAmount: 0,
+        count: 0
+      }
+    }
+
+    groups[monthKey].sales.push(sale)
+    const amount = sale.price - (sale.discount || 0)
+    groups[monthKey].totalAmount += amount
+    groups[monthKey].count++
+
+    if (sale.paymentMethod === '現金') {
+      groups[monthKey].cashAmount += amount
+    } else if (sale.paymentMethod === 'クレジットカード') {
+      groups[monthKey].creditAmount += amount
+    }
+  })
+
+  return Object.entries(groups)
+    .sort(([dateA], [dateB]) => dateB.localeCompare(dateA))
+    .map(([month, data]) => ({
+      month,
+      ...data,
+      averageAmount: Math.round(data.totalAmount / data.count)
+    }))
+})
 
 onMounted(async () => {
   try {
