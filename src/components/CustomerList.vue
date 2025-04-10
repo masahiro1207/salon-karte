@@ -27,13 +27,33 @@
           />
         </div>
       </div>
+
+      <!-- 検索部分の後に追加 -->
+      <div class="mb-4 overflow-x-auto">
+        <div class="flex space-x-2 border-b">
+          <button
+            v-for="group in 'アカサタナハマヤラワ'.split('')"
+            :key="group"
+            @click="changeTab(group)"
+            :class="[
+              'px-4 py-2 focus:outline-none',
+              activeTab === group
+                ? 'border-b-2 border-color3 text-color3'
+                : 'text-gray-500 hover:text-color3'
+            ]"
+          >
+            {{ group }}
+          </button>
+        </div>
+      </div>
     </div>
 
     <!-- 顧客グループセクション -->
-    <div v-if="groupedCustomers.length > 0" class="space-y-4 sm:space-y-6">
+    <div v-if="groupedCustomers.length > 0" class="space-y-4">
       <div
         v-for="group in groupedCustomers"
         :key="group.kana"
+        v-show="group.kana === activeTab"
         class="bg-white rounded-lg shadow-sm overflow-hidden"
       >
         <div
@@ -197,6 +217,23 @@
         <span>顧客を登録する</span>
       </button>
     </div>
+
+    <!-- ページネーションコントロールを追加 -->
+    <div class="mt-4 flex justify-center space-x-2">
+      <button
+        v-for="page in totalPages"
+        :key="page"
+        @click="currentPage = page"
+        :class="[
+          'px-3 py-1 rounded',
+          currentPage === page
+            ? 'bg-color3 text-white'
+            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+        ]"
+      >
+        {{ page }}
+      </button>
+    </div>
   </div>
 </template>
 
@@ -222,6 +259,11 @@ const customers = ref([])
 const searchQuery = ref('')
 const sortKey = ref('lastNameKana')
 const sortOrder = ref('asc')
+
+// ページネーション用の状態
+const currentPage = ref(1)
+const itemsPerPage = ref(10)
+const activeTab = ref('ア')
 
 const columns = [
   { key: 'lastName', label: '名前' },
@@ -456,6 +498,23 @@ const deleteCustomer = async (id) => {
   }
 }
 
+// ページネーション用の計算プロパティ
+const paginatedCustomers = computed(() => {
+  const start = (currentPage.value - 1) * itemsPerPage.value
+  const end = start + itemsPerPage.value
+  return sortedCustomers.value.slice(start, end)
+})
+
+const totalPages = computed(() => {
+  return Math.ceil(sortedCustomers.value.length / itemsPerPage.value)
+})
+
+// タブ切り替え用の関数
+const changeTab = (kana) => {
+  activeTab.value = kana
+  currentPage.value = 1
+}
+
 onMounted(async () => {
   if (!auth.currentUser) {
     router.push('/login')
@@ -569,5 +628,17 @@ onMounted(async () => {
   transition-property: all;
   transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
   transition-duration: 150ms;
+}
+
+/* 既存のスタイルに追加 */
+.tab-transition-enter-active,
+.tab-transition-leave-active {
+  transition: opacity 0.3s, transform 0.3s;
+}
+
+.tab-transition-enter-from,
+.tab-transition-leave-to {
+  opacity: 0;
+  transform: translateY(20px);
 }
 </style>
