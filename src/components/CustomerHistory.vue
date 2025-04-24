@@ -169,7 +169,6 @@ import {
   where,
   orderBy,
   updateDoc,
-  addDoc,
 } from 'firebase/firestore'
 import { useRouter, useRoute } from 'vue-router'
 
@@ -250,52 +249,8 @@ const formatDateTime = (dateTime) => {
     .padStart(2, '0')}`
 }
 
-const addHistory = async () => {
-  try {
-    // 履歴データを作成
-    const historyData = {
-      customerId: customerId,
-      dateTime: new Date(),
-      menu: '',
-      staff: '',
-      price: 0,
-      paymentMethod: '現金',
-      products: [],
-      notes: '',
-      createAt: new Date(),
-    }
-
-    // 履歴データを保存
-    const historyRef = await addDoc(collection(db, 'histories'), historyData)
-
-    // 顧客の最終来店日を更新
-    const customerRef = doc(db, 'customers', customerId)
-    await updateDoc(customerRef, {
-      lastVisit: historyData.dateTime
-    })
-
-    // 売上データを作成
-    const saleData = {
-      customerId: customerId,
-      dateTime: new Date(),
-      menu: '',
-      staff: '',
-      price: 0,
-      paymentMethod: '現金',
-      products: [],
-      notes: '',
-      createAt: new Date(),
-    }
-
-    // 売上データを保存
-    await addDoc(collection(db, 'sales'), saleData)
-
-    // 編集画面に遷移
-    router.push(`/edithistory/${historyRef.id}`)
-  } catch (e) {
-    console.error('Error adding history: ', e)
-    alert('履歴の追加に失敗しました。')
-  }
+const addHistory = () => {
+  router.push(`/addhistory/${customerId}`)
 }
 
 const editHistory = (id) => {

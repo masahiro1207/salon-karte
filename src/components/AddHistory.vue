@@ -255,6 +255,24 @@ const submitForm = async () => {
       // 既存の履歴を更新
       const historyRef = doc(db, 'histories', editingHistoryId.value)
       await updateDoc(historyRef, formattedHistory)
+
+      // 対応する売上データを検索して更新
+      const salesQuery = query(
+        collection(db, 'sales'),
+        where('customerId', '==', history.value.customerId),
+        where('dateTime', '==', formattedHistory.dateTime)
+      )
+      const salesSnapshot = await getDocs(salesQuery)
+
+      if (!salesSnapshot.empty) {
+        const saleDoc = salesSnapshot.docs[0]
+        const saleData = {
+          ...formattedHistory,
+          updateAt: Timestamp.now()
+        }
+        await updateDoc(doc(db, 'sales', saleDoc.id), saleData)
+      }
+
       alert('施術履歴を更新しました。')
     } else {
       // 新規履歴を追加

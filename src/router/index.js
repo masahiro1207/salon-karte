@@ -14,7 +14,6 @@ import CustomerHistory from '../components/CustomerHistory.vue'
 import Login from '../components/Login.vue'
 import AboutView from '../views/AboutView.vue'
 import AddCustomerView from '../views/AddCustomerView.vue'
-import HistoryEditForm from '../components/HistoryEditForm.vue'
 import AddHistory from '../components/AddHistory.vue'
 
 const router = createRouter({
@@ -57,7 +56,7 @@ const router = createRouter({
     {
       path: '/edithistory/:id',
       name: 'edithistory',
-      component: HistoryEditForm
+      component: SaleEditForm
     },
     {
       path: '/login',
