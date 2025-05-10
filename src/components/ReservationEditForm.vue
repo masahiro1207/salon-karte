@@ -92,11 +92,8 @@ import {
   getDocs,
   getDoc,
   doc,
-  updateDoc,
   Timestamp,
-  query,
-  where,
-  getDocs as firestoreGetDocs,
+  updateDoc
 } from 'firebase/firestore'
 import { useRouter, useRoute } from 'vue-router'
 
@@ -151,21 +148,6 @@ const submitForm = async () => {
     const docRef = doc(db, 'reservations', reservationId)
     await updateDoc(docRef, formattedReservation)
     console.log('Document updated with ID: ', reservationId)
-
-    //予約情報の変更に伴い施術履歴の情報を更新
-    const q = query(
-      collection(db, 'histories'),
-      where('customerId', '==', reservation.value.customerId),
-      where('menu', '==', reservation.value.menu),
-    )
-    const querySnapshot = await firestoreGetDocs(q)
-    querySnapshot.forEach(async (doc) => {
-      const historiesRef = doc.ref
-      await updateDoc(historiesRef, {
-        dateTime: Timestamp.fromDate(new Date(reservation.value.dateTime)),
-        menu: reservation.value.menu || '',
-      })
-    })
 
     router.push('/')
   } catch (e) {
