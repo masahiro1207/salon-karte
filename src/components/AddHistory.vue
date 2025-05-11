@@ -210,11 +210,24 @@ const goBack = () => {
 }
 
 const editHistory = (historyItem) => {
+  console.log('editHistory input:', historyItem)
   isEditing.value = true
   editingHistoryId.value = historyItem.id
-  const dateTime = historyItem.dateTime instanceof Timestamp
-    ? historyItem.dateTime.toDate()
-    : new Date(historyItem.dateTime)
+
+  let dateTime
+  try {
+    if (historyItem.dateTime instanceof Timestamp) {
+      dateTime = historyItem.dateTime.toDate()
+    } else if (typeof historyItem.dateTime === 'object' && historyItem.dateTime.seconds) {
+      dateTime = new Date(historyItem.dateTime.seconds * 1000)
+    } else {
+      dateTime = new Date(historyItem.dateTime)
+    }
+    console.log('parsed dateTime:', dateTime)
+  } catch (e) {
+    console.error('Error parsing dateTime:', e)
+    dateTime = new Date()
+  }
 
   history.value = {
     customerId: historyItem.customerId,
@@ -340,9 +353,23 @@ const fetchHistories = async () => {
 
 const formatDateTime = (dateTime) => {
   if (!dateTime) return ''
-  const date = dateTime instanceof Timestamp
-    ? dateTime.toDate()
-    : new Date(dateTime)
+  console.log('formatDateTime input:', dateTime, typeof dateTime)
+
+  let date
+  try {
+    if (dateTime instanceof Timestamp) {
+      date = dateTime.toDate()
+    } else if (typeof dateTime === 'object' && dateTime.seconds) {
+      date = new Date(dateTime.seconds * 1000)
+    } else {
+      date = new Date(dateTime)
+    }
+    console.log('formatted date:', date)
+  } catch (e) {
+    console.error('Error formatting date:', e)
+    return ''
+  }
+
   return `${date.getFullYear()}/${(date.getMonth() + 1).toString().padStart(2, '0')}/${date
     .getDate()
     .toString()
