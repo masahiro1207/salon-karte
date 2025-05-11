@@ -210,7 +210,6 @@ const goBack = () => {
 }
 
 const editHistory = (historyItem) => {
-  console.log('editHistory input:', historyItem)
   isEditing.value = true
   editingHistoryId.value = historyItem.id
 
@@ -223,7 +222,6 @@ const editHistory = (historyItem) => {
     } else {
       dateTime = new Date(historyItem.dateTime)
     }
-    console.log('parsed dateTime:', dateTime)
   } catch (e) {
     console.error('Error parsing dateTime:', e)
     dateTime = new Date()
@@ -333,7 +331,6 @@ const submitForm = async () => {
   }
 }
 
-// 履歴一覧を取得する関数を分離
 const fetchHistories = async () => {
   try {
     const historyQuery = query(
@@ -342,10 +339,17 @@ const fetchHistories = async () => {
       orderBy('dateTime', 'desc'),
     )
     const historySnapshot = await getDocs(historyQuery)
-    customerHistories.value = historySnapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    }))
+    customerHistories.value = historySnapshot.docs.map((doc) => {
+      const data = doc.data()
+      // dateTimeがTimestampでない場合は変換
+      if (data.dateTime && !(data.dateTime instanceof Timestamp)) {
+        data.dateTime = Timestamp.fromDate(new Date(data.dateTime))
+      }
+      return {
+        id: doc.id,
+        ...data,
+      }
+    })
   } catch (e) {
     console.error('Error fetching histories: ', e)
   }
@@ -353,7 +357,6 @@ const fetchHistories = async () => {
 
 const formatDateTime = (dateTime) => {
   if (!dateTime) return ''
-  console.log('formatDateTime input:', dateTime, typeof dateTime)
 
   let date
   try {
@@ -364,7 +367,6 @@ const formatDateTime = (dateTime) => {
     } else {
       date = new Date(dateTime)
     }
-    console.log('formatted date:', date)
   } catch (e) {
     console.error('Error formatting date:', e)
     return ''
