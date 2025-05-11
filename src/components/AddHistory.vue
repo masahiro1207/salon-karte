@@ -217,7 +217,7 @@ const editHistory = (historyItem) => {
   try {
     if (historyItem.dateTime instanceof Timestamp) {
       dateTime = historyItem.dateTime.toDate()
-    } else if (typeof historyItem.dateTime === 'object' && historyItem.dateTime.seconds) {
+    } else if (typeof historyItem.dateTime === 'object' && 'seconds' in historyItem.dateTime) {
       dateTime = new Date(historyItem.dateTime.seconds * 1000)
     } else {
       dateTime = new Date(historyItem.dateTime)
@@ -341,9 +341,17 @@ const fetchHistories = async () => {
     const historySnapshot = await getDocs(historyQuery)
     customerHistories.value = historySnapshot.docs.map((doc) => {
       const data = doc.data()
-      // dateTimeがTimestampでない場合は変換
-      if (data.dateTime && !(data.dateTime instanceof Timestamp)) {
-        data.dateTime = Timestamp.fromDate(new Date(data.dateTime))
+      // dateTimeの型を確認して適切に変換
+      if (data.dateTime) {
+        if (!(data.dateTime instanceof Timestamp)) {
+          if (typeof data.dateTime === 'object' && 'seconds' in data.dateTime) {
+            // Firestoreのタイムスタンプ形式の場合
+            data.dateTime = new Timestamp(data.dateTime.seconds, data.dateTime.nanoseconds)
+          } else {
+            // その他の場合は新しいTimestampを作成
+            data.dateTime = Timestamp.fromDate(new Date(data.dateTime))
+          }
+        }
       }
       return {
         id: doc.id,
@@ -362,7 +370,7 @@ const formatDateTime = (dateTime) => {
   try {
     if (dateTime instanceof Timestamp) {
       date = dateTime.toDate()
-    } else if (typeof dateTime === 'object' && dateTime.seconds) {
+    } else if (typeof dateTime === 'object' && 'seconds' in dateTime) {
       date = new Date(dateTime.seconds * 1000)
     } else {
       date = new Date(dateTime)
