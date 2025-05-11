@@ -212,11 +212,13 @@ const goBack = () => {
 const editHistory = (historyItem) => {
   isEditing.value = true
   editingHistoryId.value = historyItem.id
+  const dateTime = historyItem.dateTime instanceof Timestamp
+    ? historyItem.dateTime.toDate()
+    : new Date(historyItem.dateTime)
+
   history.value = {
     customerId: historyItem.customerId,
-    dateTime: historyItem.dateTime instanceof Timestamp
-      ? historyItem.dateTime.toDate().toISOString().split('T')[0]
-      : new Date(historyItem.dateTime).toISOString().split('T')[0],
+    dateTime: dateTime.toISOString().split('T')[0],
     menu: historyItem.menu,
     staff: historyItem.staff,
     price: historyItem.price,
@@ -338,7 +340,9 @@ const fetchHistories = async () => {
 
 const formatDateTime = (dateTime) => {
   if (!dateTime) return ''
-  const date = dateTime.toDate()
+  const date = dateTime instanceof Timestamp
+    ? dateTime.toDate()
+    : new Date(dateTime)
   return `${date.getFullYear()}/${(date.getMonth() + 1).toString().padStart(2, '0')}/${date
     .getDate()
     .toString()
