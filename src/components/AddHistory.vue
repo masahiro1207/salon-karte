@@ -227,17 +227,11 @@ const editHistory = (historyItem) => {
 
 const submitForm = async () => {
   try {
-    if (
-      !history.value.dateTime ||
-      !history.value.menu ||
-      !history.value.staff ||
-      !history.value.price
-    ) {
+    if (!history.value.dateTime || !history.value.menu || !history.value.staff || !history.value.price) {
       alert('必須項目が入力されていません。')
       return
     }
 
-    // 履歴データの作成
     const formattedHistory = {
       customerId: history.value.customerId,
       dateTime: Timestamp.fromDate(new Date(history.value.dateTime)),
@@ -251,7 +245,7 @@ const submitForm = async () => {
       reservationId: history.value.reservationId || null,
     }
 
-    if (isEditing.value) {
+    if (isEditing.value && editingHistoryId.value) {
       // 既存の履歴を更新
       const historyRef = doc(db, 'histories', editingHistoryId.value)
       await updateDoc(historyRef, formattedHistory)
@@ -259,25 +253,28 @@ const submitForm = async () => {
       // 対応する売上データを検索して更新
       const salesQuery = query(
         collection(db, 'sales'),
-        where('customerId', '==', history.value.customerId),
-        where('dateTime', '==', formattedHistory.dateTime)
+        where('historyId', '==', editingHistoryId.value)
       )
       const salesSnapshot = await getDocs(salesQuery)
 
       if (!salesSnapshot.empty) {
         const saleDoc = salesSnapshot.docs[0]
-        const saleData = {
-          ...formattedHistory,
-          updateAt: Timestamp.now()
-        }
-        await updateDoc(doc(db, 'sales', saleDoc.id), saleData)
+        await updateDoc(doc(db, 'sales', saleDoc.id), formattedHistory)
       }
 
       alert('施術履歴を更新しました。')
     } else {
       // 新規履歴を追加
       formattedHistory.createAt = Timestamp.now()
-      await addDoc(collection(db, 'histories'), formattedHistory)
+      const newHistoryRef = await addDoc(collection(db, 'histories'), formattedHistory)
+
+      // 売上データを作成
+      const saleData = {
+        ...formattedHistory,
+        historyId: newHistoryRef.id,
+        createAt: Timestamp.now(),
+      }
+      await addDoc(collection(db, 'sales'), saleData)
 
       // 予約データに施術履歴フラグを更新
       if (history.value.reservationId) {
@@ -292,22 +289,6 @@ const submitForm = async () => {
       await updateDoc(customerRef, {
         lastVisit: Timestamp.fromDate(new Date(history.value.dateTime)),
       })
-
-      // 売上データを作成
-      const saleData = {
-        customerId: history.value.customerId,
-        dateTime: Timestamp.fromDate(new Date(history.value.dateTime)),
-        menu: history.value.menu,
-        staff: history.value.staff,
-        price: Number(history.value.price),
-        paymentMethod: history.value.paymentMethod,
-        products: history.value.products.filter((p) => p.name && p.count),
-        notes: history.value.notes,
-        createAt: Timestamp.now(),
-      }
-
-      // 売上データを保存
-      await addDoc(collection(db, 'sales'), saleData)
 
       alert('施術履歴を登録しました。')
     }
