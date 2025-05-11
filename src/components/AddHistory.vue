@@ -214,7 +214,9 @@ const editHistory = (historyItem) => {
   editingHistoryId.value = historyItem.id
   history.value = {
     customerId: historyItem.customerId,
-    dateTime: historyItem.dateTime.toDate().toISOString().split('T')[0],
+    dateTime: historyItem.dateTime instanceof Timestamp
+      ? historyItem.dateTime.toDate().toISOString().split('T')[0]
+      : new Date(historyItem.dateTime).toISOString().split('T')[0],
     menu: historyItem.menu,
     staff: historyItem.staff,
     price: historyItem.price,
