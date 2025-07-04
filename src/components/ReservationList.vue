@@ -36,7 +36,10 @@
     <!-- タイムテーブル（モバイル表示） -->
     <div class="block sm:hidden bg-white rounded-lg shadow-sm">
       <div v-for="date in weekDates" :key="date" class="border-b last:border-b-0">
-        <div class="p-4 bg-gray-50">
+        <div
+          class="p-4 bg-gray-50 cursor-pointer hover:bg-gray-100 transition duration-200"
+          @click="handleDateClick(date)"
+        >
           <div class="font-medium text-gray-800">{{ formatDate(date) }}</div>
           <div class="text-sm text-gray-500">{{ formatDayOfWeek(date) }}</div>
         </div>
@@ -98,7 +101,10 @@
         <!-- 予約スロット -->
         <tbody>
           <tr v-for="date in weekDates" :key="date">
-            <td class="border-b border-gray-200 p-4">
+            <td
+              class="border-b border-gray-200 p-4 cursor-pointer hover:bg-gray-50 transition duration-200"
+              @click="handleDateClick(date)"
+            >
               <div class="text-sm font-medium text-gray-600">
                 {{ formatDate(date) }}
               </div>
@@ -233,6 +239,71 @@
         </div>
       </div>
     </Teleport>
+
+    <!-- 日別予約客一覧モーダル -->
+    <Teleport to="body">
+      <div
+        v-if="selectedDate"
+        class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+        @click.self="selectedDate = null"
+      >
+        <div class="bg-white rounded-lg shadow-xl p-4 sm:p-6 w-full max-w-4xl mx-auto max-h-[90vh] overflow-y-auto">
+          <div class="flex justify-between items-center mb-4">
+            <h3 class="text-lg sm:text-xl font-bold text-gray-800">
+              {{ format(selectedDate, 'yyyy年M月d日(E)', { locale: ja }) }}の予約客一覧
+            </h3>
+            <button @click="selectedDate = null" class="text-gray-500 hover:text-gray-700">
+              <span class="material-icons">close</span>
+            </button>
+          </div>
+
+          <div class="space-y-4">
+            <div v-for="reservation in getDayReservations(selectedDate)" :key="reservation.id" class="border border-gray-200 rounded-lg p-4">
+              <div class="flex justify-between items-start mb-3">
+                <div>
+                  <h4 class="text-lg font-semibold text-color3">{{ reservation.customerName }}様</h4>
+                  <p class="text-sm text-gray-600">
+                    {{ format(reservation.dateTime.toDate(), 'HH:mm', { locale: ja }) }} -
+                    {{ formatEndTime(reservation) }} ({{ reservation.duration }}分)
+                  </p>
+                  <p class="text-sm text-gray-600">{{ reservation.menu }} (担当: {{ reservation.staff }})</p>
+                </div>
+                <div class="flex items-center space-x-2">
+                  <span
+                    v-if="reservation.hasTreatmentHistory"
+                    class="material-icons text-green-600"
+                    title="施術履歴あり"
+                  >
+                    check_circle
+                  </span>
+                  <button
+                    @click="viewCustomerHistory(reservation.customerId)"
+                    class="text-color3 hover:text-opacity-80 text-sm"
+                  >
+                    履歴詳細
+                  </button>
+                </div>
+              </div>
+
+              <!-- 最新の施術履歴 -->
+              <div v-if="reservation.latestHistory" class="bg-gray-50 rounded-lg p-3">
+                <h5 class="text-sm font-medium text-gray-700 mb-2">最新の施術履歴</h5>
+                <div class="text-sm text-gray-600 space-y-1">
+                  <p><strong>日時:</strong> {{ formatHistoryDateTime(reservation.latestHistory.dateTime) }}</p>
+                  <p><strong>メニュー:</strong> {{ reservation.latestHistory.menu }}</p>
+                  <p><strong>担当:</strong> {{ reservation.latestHistory.staff }}</p>
+                  <p><strong>料金:</strong> ¥{{ reservation.latestHistory.price?.toLocaleString() }}</p>
+                  <p v-if="reservation.latestHistory.notes"><strong>備考:</strong> {{ reservation.latestHistory.notes }}</p>
+                </div>
+              </div>
+              <div v-else class="bg-gray-50 rounded-lg p-3">
+                <p class="text-sm text-gray-500">施術履歴がありません</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>
 
@@ -248,15 +319,18 @@ import {
   getDoc,
   doc,
   deleteDoc,
+  orderBy,
+  limit,
 } from 'firebase/firestore'
 import { useRouter, useRoute } from 'vue-router'
-import { format, startOfWeek, endOfWeek, eachDayOfInterval, addWeeks, subWeeks } from 'date-fns'
+import { format, eachDayOfInterval, addWeeks, subWeeks } from 'date-fns'
 import { ja } from 'date-fns/locale'
 
 const router = useRouter()
 const route = useRoute()
 const reservations = ref([])
 const selectedReservation = ref(null)
+const selectedDate = ref(null)
 const currentWeekStart = ref(new Date())
 
 // 時間スロットの生成（9:00 から 20:00 まで30分間隔）
@@ -276,10 +350,12 @@ const weekDates = computed(() => {
   const start = currentWeekStart.value
   const end = new Date(start)
   end.setDate(end.getDate() + 6) // 本日から6日後（合計7日間）
-  return eachDayOfInterval({
+  const dates = eachDayOfInterval({
     start,
     end,
   })
+  console.log('Generated week dates:', dates.map(d => format(d, 'yyyy-MM-dd')))
+  return dates
 })
 
 const currentWeekEnd = computed(() => {
@@ -399,21 +475,49 @@ const fetchReservations = async () => {
         const menu = data.menu || data.service || '不明'
         const menuDuration = data.menu ? menuData.get(data.menu)?.duration || 30 : 30
 
-        // その予約の日付の施術履歴を確認
-        const startOfDay = new Date(data.dateTime.toDate())
+        // 予約IDまたは日付と顧客IDで施術履歴を確認
+        const reservationDate = data.dateTime.toDate()
+        const startOfDay = new Date(reservationDate)
         startOfDay.setHours(0, 0, 0, 0)
-        const endOfDay = new Date(data.dateTime.toDate())
+        const endOfDay = new Date(reservationDate)
         endOfDay.setHours(23, 59, 59, 999)
 
         const historyQuery = query(
           collection(db, 'histories'),
           where('customerId', '==', data.customerId),
           where('dateTime', '>=', Timestamp.fromDate(startOfDay)),
-          where('dateTime', '<=', Timestamp.fromDate(endOfDay)),
+          where('dateTime', '<=', Timestamp.fromDate(endOfDay))
         )
 
         const historySnapshot = await getDocs(historyQuery)
         const hasTreatmentHistory = !historySnapshot.empty
+
+        // 最新の施術履歴を取得
+        const latestHistoryQuery = query(
+          collection(db, 'histories'),
+          where('customerId', '==', data.customerId),
+          orderBy('dateTime', 'desc'),
+          limit(1)
+        )
+        const latestHistorySnapshot = await getDocs(latestHistoryQuery)
+        const latestHistory = latestHistorySnapshot.empty ? null : {
+          id: latestHistorySnapshot.docs[0].id,
+          ...latestHistorySnapshot.docs[0].data()
+        }
+
+        // latestHistoryのdateTimeを正しく処理
+        if (latestHistory && latestHistory.dateTime) {
+          // FirestoreのTimestampオブジェクトの場合はそのまま保持
+          if (latestHistory.dateTime instanceof Timestamp) {
+            // 既にTimestampオブジェクトなので何もしない
+          } else if (typeof latestHistory.dateTime === 'object' && 'seconds' in latestHistory.dateTime) {
+            // Firestoreのタイムスタンプ形式の場合
+            latestHistory.dateTime = new Timestamp(latestHistory.dateTime.seconds, latestHistory.dateTime.nanoseconds)
+          } else {
+            // その他の場合は新しいTimestampを作成
+            latestHistory.dateTime = Timestamp.fromDate(new Date(latestHistory.dateTime))
+          }
+        }
 
         return {
           id: data.id,
@@ -422,6 +526,7 @@ const fetchReservations = async () => {
           menu,
           duration: menuDuration,
           hasTreatmentHistory,
+          latestHistory,
         }
       }),
     )
@@ -573,6 +678,32 @@ const formatEndTime = (reservation) => {
   return `${endTime.getHours()}:${endTime.getMinutes().toString().padStart(2, '0')}`
 }
 
+// 指定日の予約一覧を取得
+const getDayReservations = (date) => {
+  if (!date) return []
+  const dateKey = format(date, 'yyyy-MM-dd')
+  const dayReservations = []
+
+  console.log('Looking for reservations on:', dateKey)
+  console.log('Total reservations:', reservations.value.length)
+
+  reservations.value.forEach((reservation) => {
+    if (!reservation.dateTime) return
+    const reservationDate = format(reservation.dateTime.toDate(), 'yyyy-MM-dd')
+    console.log('Reservation date:', reservationDate, 'Customer:', reservation.customerName)
+    if (reservationDate === dateKey) {
+      dayReservations.push(reservation)
+    }
+  })
+
+  console.log('Found reservations for', dateKey, ':', dayReservations.length)
+
+  // 時間順にソート
+  return dayReservations.sort((a, b) => {
+    return a.dateTime.toDate() - b.dateTime.toDate()
+  })
+}
+
 // 新規予約（時間未指定）
 const addReservation = () => {
   // 選択中の週の月曜日の9:00を初期値として設定
@@ -660,6 +791,45 @@ const handleReservationClick = (reservation) => {
   selectedReservation.value = reservation
 }
 
+// 日付クリック時の処理
+const handleDateClick = (date) => {
+  console.log('Date clicked:', format(date, 'yyyy-MM-dd'))
+  selectedDate.value = date
+}
+
+// 顧客履歴詳細を表示
+const viewCustomerHistory = (customerId) => {
+  router.push(`/history/${customerId}`)
+  selectedDate.value = null
+}
+
+// 履歴日時のフォーマット
+const formatHistoryDateTime = (dateTime) => {
+  try {
+    if (!dateTime) return ''
+
+    let date
+    if (dateTime instanceof Timestamp) {
+      date = dateTime.toDate()
+    } else if (dateTime instanceof Date) {
+      date = dateTime
+    } else if (typeof dateTime === 'object' && 'seconds' in dateTime) {
+      // Firestoreのタイムスタンプ形式の場合
+      date = new Date(dateTime.seconds * 1000)
+    } else if (typeof dateTime === 'string') {
+      date = new Date(dateTime)
+    } else {
+      console.warn('Unknown dateTime format:', dateTime)
+      return ''
+    }
+
+    return format(date, 'yyyy年M月d日 HH:mm', { locale: ja })
+  } catch (error) {
+    console.error('Error formatting history dateTime:', error, dateTime)
+    return ''
+  }
+}
+
 onMounted(() => {
   // URLクエリパラメータから週の開始日を取得
   const weekStartParam = route.query.weekStart
@@ -668,9 +838,12 @@ onMounted(() => {
     currentWeekStart.value = new Date(decodedWeekStart)
   } else {
     // クエリパラメータがない場合は本日の日付を設定
-    currentWeekStart.value = new Date()
+    const today = new Date()
+    today.setHours(0, 0, 0, 0) // 時間を00:00:00に設定
+    currentWeekStart.value = today
   }
 
+  console.log('Current week start:', currentWeekStart.value)
   fetchReservations()
 })
 </script>

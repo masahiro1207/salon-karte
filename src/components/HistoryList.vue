@@ -92,18 +92,31 @@ const formatDate = (dateTime) => {
   if (!dateTime) return ''
 
   let date
-  if (typeof dateTime === 'string') {
-    date = new Date(dateTime)
-  } else if (typeof dateTime.toDate === 'function') {
-    date = dateTime.toDate()
-  } else {
-    date = new Date(dateTime)
-  }
+  try {
+    if (typeof dateTime === 'string') {
+      date = new Date(dateTime)
+    } else if (dateTime && typeof dateTime.toDate === 'function') {
+      date = dateTime.toDate()
+    } else if (dateTime instanceof Date) {
+      date = dateTime
+    } else {
+      console.error('Invalid dateTime format:', dateTime)
+      return ''
+    }
 
-  const year = date.getFullYear()
-  const month = (date.getMonth() + 1).toString().padStart(2, '0')
-  const day = date.getDate().toString().padStart(2, '0')
-  return `${year}-${month}-${day}`
+    if (isNaN(date.getTime())) {
+      console.error('Invalid date:', date)
+      return ''
+    }
+
+    const year = date.getFullYear()
+    const month = (date.getMonth() + 1).toString().padStart(2, '0')
+    const day = date.getDate().toString().padStart(2, '0')
+    return `${year}-${month}-${day}`
+  } catch (error) {
+    console.error('Error formatting date:', error)
+    return ''
+  }
 }
 const goBack = () => {
   router.push('/customer')

@@ -171,6 +171,7 @@ import {
   updateDoc,
 } from 'firebase/firestore'
 import { useRouter, useRoute } from 'vue-router'
+import { Timestamp } from 'firebase/firestore'
 
 const router = useRouter()
 const route = useRoute()
@@ -242,9 +243,26 @@ const creditCardTotal = computed(() => {
 
 const formatDateTime = (dateTime) => {
   if (!dateTime) return ''
-  const date = dateTime.toDate()
+
+  let date
+  try {
+    if (dateTime instanceof Timestamp) {
+      date = dateTime.toDate()
+    } else if (typeof dateTime === 'object' && 'seconds' in dateTime) {
+      date = new Date(dateTime.seconds * 1000)
+    } else {
+      date = new Date(dateTime)
+    }
+  } catch (e) {
+    console.error('Error formatting date:', e)
+    return ''
+  }
+
   return `${date.getFullYear()}/${(date.getMonth() + 1).toString().padStart(2, '0')}/${date
     .getDate()
+    .toString()
+    .padStart(2, '0')} ${date.getHours().toString().padStart(2, '0')}:${date
+    .getMinutes()
     .toString()
     .padStart(2, '0')}`
 }

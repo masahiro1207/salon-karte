@@ -423,9 +423,27 @@ const groupedSales = computed(() => {
       ...data,
       // 各日付内の売上を時系列順（昇順）にソート
       sales: data.sales.sort((a, b) => {
-        const timeA = a.dateTime.toDate ? a.dateTime.toDate() : new Date(a.dateTime)
-        const timeB = b.dateTime.toDate ? b.dateTime.toDate() : new Date(b.dateTime)
-        return timeA - timeB
+        let timeA, timeB;
+
+        try {
+          timeA = a.dateTime instanceof Date ? a.dateTime :
+                  (a.dateTime && typeof a.dateTime.toDate === 'function' ? a.dateTime.toDate() :
+                  new Date(a.dateTime));
+        } catch (e) {
+          console.error('Error parsing date A:', e);
+          timeA = new Date(0);
+        }
+
+        try {
+          timeB = b.dateTime instanceof Date ? b.dateTime :
+                  (b.dateTime && typeof b.dateTime.toDate === 'function' ? b.dateTime.toDate() :
+                  new Date(b.dateTime));
+        } catch (e) {
+          console.error('Error parsing date B:', e);
+          timeB = new Date(0);
+        }
+
+        return timeA - timeB;
       }),
     }))
 })
