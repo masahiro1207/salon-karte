@@ -51,18 +51,7 @@
             </option>
           </select>
         </div>
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">担当者</label>
-          <select
-            v-model="selectedStaff"
-            class="w-full border border-gray-300 rounded-md px-3 py-2"
-          >
-            <option value="">すべて</option>
-            <option v-for="staff in staffs" :key="staff" :value="staff">
-              {{ staff }}
-            </option>
-          </select>
-        </div>
+
       </div>
     </div>
 
@@ -117,7 +106,7 @@
             <tr>
               <th class="px-6 py-4 text-left text-sm font-medium text-gray-600">日時</th>
               <th class="px-6 py-4 text-left text-sm font-medium text-gray-600">メニュー</th>
-              <th class="px-6 py-4 text-left text-sm font-medium text-gray-600">担当者</th>
+
               <th class="px-6 py-4 text-right text-sm font-medium text-gray-600">料金</th>
               <th class="px-6 py-4 text-left text-sm font-medium text-gray-600">支払方法</th>
               <th class="px-6 py-4 text-left text-sm font-medium text-gray-600">備考</th>
@@ -128,7 +117,7 @@
             <tr v-for="history in filteredHistories" :key="history.id" class="hover:bg-gray-50">
               <td class="px-6 py-4">{{ formatDateTime(history.dateTime) }}</td>
               <td class="px-6 py-4">{{ history.menu }}</td>
-              <td class="px-6 py-4">{{ history.staff }}</td>
+
               <td class="px-6 py-4 text-right">¥{{ history.price.toLocaleString() }}</td>
               <td class="px-6 py-4">{{ history.paymentMethod }}</td>
               <td class="px-6 py-4">{{ history.notes }}</td>
@@ -185,11 +174,9 @@ const totalVisits = ref(0)
 const totalAmount = ref(0)
 const histories = ref([])
 const menus = ref([])
-const staffs = ref([])
 const startDate = ref('')
 const endDate = ref('')
 const selectedMenu = ref('')
-const selectedStaff = ref('')
 
 const filteredHistories = computed(() => {
   let filtered = histories.value
@@ -212,9 +199,7 @@ const filteredHistories = computed(() => {
     filtered = filtered.filter((history) => history.menu === selectedMenu.value)
   }
 
-  if (selectedStaff.value) {
-    filtered = filtered.filter((history) => history.staff === selectedStaff.value)
-  }
+
 
   return filtered
 })
@@ -334,7 +319,7 @@ const goToSalesList = () => {
       startDate: startDate.value,
       endDate: endDate.value,
       selectedMenu: selectedMenu.value,
-      selectedStaff: selectedStaff.value,
+
     },
   })
 }
@@ -402,9 +387,7 @@ onMounted(async () => {
     // 履歴情報から集計データを計算
     calculateHistoryStats(histories.value)
 
-    // 担当者一覧の取得
-    const uniqueStaffs = new Set(histories.value.map((history) => history.staff))
-    staffs.value = Array.from(uniqueStaffs)
+
 
     // URLクエリパラメータから履歴情報を取得
     const notes = route.query.notes

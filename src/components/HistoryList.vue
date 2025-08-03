@@ -28,7 +28,7 @@
           <tr>
             <th class="border border-gray-300 p-2 text-color3">日付</th>
             <th class="border border-gray-300 p-2 text-color3">メニュー</th>
-            <th class="border border-gray-300 p-2 text-color3">担当者</th>
+
             <th class="border border-gray-300 p-2 text-color3">料金</th>
             <th class="border border-gray-300 p-2 text-color3">商品</th>
             <th class="border border-gray-300 p-2 text-color3">備考</th>
@@ -42,7 +42,7 @@
               {{ formatDate(history.date) }}
             </td>
             <td class="border border-gray-300 p-2">{{ history.menu }}</td>
-            <td class="border border-gray-300 p-2 text-center">{{ history.staff }}</td>
+
             <td class="border border-gray-300 p-2 text-right">
               {{ history.price }}
             </td>

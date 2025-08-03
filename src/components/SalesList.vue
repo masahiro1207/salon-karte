@@ -46,18 +46,7 @@
           </option>
         </select>
       </div>
-      <div class="flex flex-col">
-        <label for="staffFilter" class="block text-sm mb-1">担当者:</label>
-        <select
-          id="staffFilter"
-          v-model="selectedStaff"
-          @change="filterSales"
-          class="w-full border rounded-md px-2 py-1"
-        >
-          <option value="">すべて</option>
-          <option v-for="staff in staffs" :key="staff" :value="staff">{{ staff }}</option>
-        </select>
-      </div>
+
       <div class="flex flex-col">
         <label for="menuFilter" class="block text-sm mb-1">メニュー:</label>
         <select
@@ -159,7 +148,7 @@
             </div>
             <div class="grid grid-cols-2 gap-2 text-sm">
               <div><span class="text-gray-600">メニュー:</span> {{ sale.menu }}</div>
-              <div><span class="text-gray-600">担当者:</span> {{ sale.staff }}</div>
+
               <div><span class="text-gray-600">料金:</span> ¥{{ sale.price.toLocaleString() }}</div>
               <div>
                 <span class="text-gray-600">割引:</span> ¥{{
@@ -199,7 +188,7 @@
               <tr>
                 <th class="border border-gray-300 p-2 text-color3 w-[4%]">顧客</th>
                 <th class="border border-gray-300 p-2 text-color3 w-[5%]">メニュー</th>
-                <th class="border border-gray-300 p-2 text-color3 w-[2%]">担当者</th>
+
                 <th class="border border-gray-300 p-2 text-color3 w-[3%]">料金</th>
                 <th class="border border-gray-300 p-2 text-color3 w-[3%]">商品</th>
                 <th class="border border-gray-300 p-2 text-color3 w-[3%]">割引</th>
@@ -212,7 +201,7 @@
               <tr v-for="sale in group.sales" :key="sale.id" class="hover:bg-gray-50">
                 <td class="border border-gray-300 p-2">{{ sale.customerName }}</td>
                 <td class="border border-gray-300 p-2">{{ sale.menu }}</td>
-                <td class="border border-gray-300 p-2 text-center">{{ sale.staff }}</td>
+
                 <td class="border border-gray-300 p-2 text-right">
                   ¥{{ sale.price.toLocaleString() }}
                 </td>

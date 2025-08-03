@@ -13,7 +13,7 @@
             <tr>
               <th class="px-4 py-3 text-left text-sm font-medium text-gray-600">日時</th>
               <th class="px-4 py-3 text-left text-sm font-medium text-gray-600">メニュー</th>
-              <th class="px-4 py-3 text-left text-sm font-medium text-gray-600">担当者</th>
+
               <th class="px-4 py-3 text-left text-sm font-medium text-gray-600">料金</th>
               <th class="px-4 py-3 text-left text-sm font-medium text-gray-600">支払方法</th>
               <th class="px-4 py-3 text-left text-sm font-medium text-gray-600">使用商品</th>
@@ -29,7 +29,7 @@
             >
               <td class="px-4 py-3">{{ formatDateTime(historyItem.dateTime) }}</td>
               <td class="px-4 py-3">{{ historyItem.menu }}</td>
-              <td class="px-4 py-3">{{ historyItem.staff }}</td>
+
               <td class="px-4 py-3">¥{{ historyItem.price?.toLocaleString() }}</td>
               <td class="px-4 py-3">{{ historyItem.paymentMethod }}</td>
               <td class="px-4 py-3">
@@ -74,15 +74,7 @@
           <option v-for="menu in menus" :key="menu.id" :value="menu.name">{{ menu.name }}</option>
         </select>
       </div>
-      <div class="flex flex-col">
-        <label for="staff">担当者</label>
-        <input
-          type="text"
-          id="staff"
-          v-model="history.staff"
-          class="border border-gray-300 rounded-md px-3 py-2 w-full text-charcoal-black"
-        />
-      </div>
+
       <div class="flex flex-col">
         <label for="price">料金</label>
         <input

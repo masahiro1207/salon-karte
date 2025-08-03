@@ -43,16 +43,7 @@
           </select>
         </div>
 
-        <!-- 担当者 -->
-        <div class="flex flex-col">
-          <label for="staff" class="mb-1 sm:mb-2 text-sm sm:text-base font-medium">担当者</label>
-          <input
-            type="text"
-            id="staff"
-            v-model="sale.staff"
-            class="w-full px-3 py-2 sm:py-3 border border-gray-300 rounded-lg text-sm sm:text-base focus:ring-2 focus:ring-color3 focus:border-transparent"
-          />
-        </div>
+
 
         <!-- 料金と割引 -->
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">

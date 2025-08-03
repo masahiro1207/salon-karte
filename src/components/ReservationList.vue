@@ -234,7 +234,7 @@
             }}
             - {{ formatEndTime(selectedReservation) }}
             <br />
-            {{ selectedReservation.menu }} (担当: {{ selectedReservation.staff }})
+            {{ selectedReservation.menu }}
           </div>
         </div>
       </div>
@@ -266,7 +266,7 @@
                     {{ format(reservation.dateTime.toDate(), 'HH:mm', { locale: ja }) }} -
                     {{ formatEndTime(reservation) }} ({{ reservation.duration }}分)
                   </p>
-                  <p class="text-sm text-gray-600">{{ reservation.menu }} (担当: {{ reservation.staff }})</p>
+                  <p class="text-sm text-gray-600">{{ reservation.menu }}</p>
                 </div>
                 <div class="flex items-center space-x-2">
                   <span
@@ -291,7 +291,7 @@
                 <div class="text-sm text-gray-600 space-y-1">
                   <p><strong>日時:</strong> {{ formatHistoryDateTime(reservation.latestHistory.dateTime) }}</p>
                   <p><strong>メニュー:</strong> {{ reservation.latestHistory.menu }}</p>
-                  <p><strong>担当:</strong> {{ reservation.latestHistory.staff }}</p>
+
                   <p><strong>料金:</strong> ¥{{ reservation.latestHistory.price?.toLocaleString() }}</p>
                   <p v-if="reservation.latestHistory.notes"><strong>備考:</strong> {{ reservation.latestHistory.notes }}</p>
                 </div>
