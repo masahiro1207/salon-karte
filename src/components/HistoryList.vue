@@ -39,7 +39,7 @@
         <tbody class="text-charcoal-black">
           <tr v-for="history in histories" :key="history.id" class="hover-bg-opacity">
             <td class="border border-gray-300 p-2 text-center">
-              {{ formatDate(history.dateTime) }}
+              {{ formatDate(history.date) }}
             </td>
             <td class="border border-gray-300 p-2">{{ history.menu }}</td>
             <td class="border border-gray-300 p-2 text-center">{{ history.staff }}</td>
@@ -79,7 +79,17 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { db } from '../firebase'
-import { collection, getDocs, doc, getDoc, deleteDoc, query, orderBy, where, updateDoc } from 'firebase/firestore'
+import {
+  collection,
+  getDocs,
+  doc,
+  getDoc,
+  deleteDoc,
+  query,
+  orderBy,
+  where,
+  updateDoc,
+} from 'firebase/firestore'
 import { useRouter, useRoute } from 'vue-router'
 
 const histories = ref([])
@@ -131,7 +141,7 @@ const deleteHistory = async (id) => {
   if (confirm('本当に削除しますか？')) {
     try {
       // 削除する履歴のデータを取得
-      const historyToDelete = histories.value.find(history => history.id === id)
+      const historyToDelete = histories.value.find((history) => history.id === id)
 
       // 履歴を削除
       await deleteDoc(doc(db, 'histories', id))
@@ -139,7 +149,7 @@ const deleteHistory = async (id) => {
 
       // 削除した履歴が最新の履歴だった場合、顧客の最終来店日を更新
       if (historyToDelete && historyToDelete.dateTime) {
-        const remainingHistories = histories.value.filter(h => h.dateTime)
+        const remainingHistories = histories.value.filter((h) => h.dateTime)
         if (remainingHistories.length > 0) {
           // 残りの履歴の中で最新の日時を取得
           const latestHistory = remainingHistories.reduce((latest, current) => {
@@ -149,13 +159,13 @@ const deleteHistory = async (id) => {
           // 顧客の最終来店日を更新
           const customerRef = doc(db, 'customers', customerId)
           await updateDoc(customerRef, {
-            lastVisit: latestHistory.dateTime
+            lastVisit: latestHistory.dateTime,
           })
         } else {
           // 履歴が全て削除された場合、最終来店日をnullに設定
           const customerRef = doc(db, 'customers', customerId)
           await updateDoc(customerRef, {
-            lastVisit: null
+            lastVisit: null,
           })
         }
       }
@@ -171,7 +181,7 @@ onMounted(async () => {
     const q = query(
       collection(db, 'histories'),
       where('customerId', '==', customerId),
-      orderBy('dateTime', 'desc') // createAtではなくdateTimeでソート
+      orderBy('dateTime', 'desc'), // createAtではなくdateTimeでソート
     )
     const querySnapshot = await getDocs(q)
 
@@ -192,7 +202,7 @@ onMounted(async () => {
     if (histories.value.length > 0 && histories.value[0].dateTime) {
       const customerRef = doc(db, 'customers', customerId)
       await updateDoc(customerRef, {
-        lastVisit: histories.value[0].dateTime
+        lastVisit: histories.value[0].dateTime,
       })
     }
 

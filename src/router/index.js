@@ -1,6 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import HistoryList from '../components/HistoryList.vue'
-import HistoryForm from '../components/HistoryForm.vue'
+
 import CustomerEditForm from '../components/CustomerEditForm.vue'
 import ReservationList from '../components/ReservationList.vue'
 import ReservationEditForm from '../components/ReservationEditForm.vue'
@@ -12,7 +12,7 @@ import CustomerList from '../components/CustomerList.vue'
 import AddReservation from '../components/AddReservation.vue'
 import CustomerHistory from '../components/CustomerHistory.vue'
 import Login from '../components/Login.vue'
-import AboutView from '../views/AboutView.vue'
+
 import AddCustomerView from '../views/AddCustomerView.vue'
 import AddHistory from '../components/AddHistory.vue'
 
@@ -104,11 +104,7 @@ const router = createRouter({
       name: 'editsale',
       component: SaleEditForm,
     },
-    {
-      path: '/about',
-      name: 'about',
-      component: AboutView,
-    },
+
     {
       path: '/history/:id',
       name: 'CustomerHistory',
