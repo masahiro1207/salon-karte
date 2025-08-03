@@ -178,7 +178,6 @@ const history = ref({
   customerId: customerId,
   dateTime: new Date().toISOString().split('T')[0],
   menu: '',
-  staff: '',
   price: null,
   paymentMethod: '現金',
   products: [{ name: '', count: 1 }],
@@ -223,7 +222,6 @@ const editHistory = (historyItem) => {
     customerId: historyItem.customerId,
     dateTime: dateTime.toISOString().split('T')[0],
     menu: historyItem.menu,
-    staff: historyItem.staff,
     price: historyItem.price,
     paymentMethod: historyItem.paymentMethod,
     products: historyItem.products || [{ name: '', count: 1 }],
@@ -234,7 +232,7 @@ const editHistory = (historyItem) => {
 
 const submitForm = async () => {
   try {
-    if (!history.value.dateTime || !history.value.menu || !history.value.staff || !history.value.price) {
+    if (!history.value.dateTime || !history.value.menu || !history.value.price) {
       alert('必須項目が入力されていません。')
       return
     }
@@ -243,7 +241,6 @@ const submitForm = async () => {
       customerId: history.value.customerId,
       dateTime: Timestamp.fromDate(new Date(history.value.dateTime)),
       menu: history.value.menu,
-      staff: history.value.staff,
       price: Number(history.value.price),
       paymentMethod: history.value.paymentMethod,
       products: history.value.products.filter((p) => p.name && p.count),
