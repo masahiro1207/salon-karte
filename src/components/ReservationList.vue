@@ -458,14 +458,15 @@ const fetchReservations = async () => {
         ? Array.from(customerIds).filter(id => !customerCache.value.has(id))
         : Array.from(customerIds)
 
+      if (uncachedCustomerIds.length > 0) {
         // customerIdsを30件ずつのチャンクに分割（Firestoreの'in'クエリの制限）
         const customerIdChunks = []
         for (let i = 0; i < uncachedCustomerIds.length; i += 30) {
           customerIdChunks.push(uncachedCustomerIds.slice(i, i + 30))
         }
 
-      // 各チャンクを並列で処理
-      const customerPromises = customerIdChunks.map(async (chunk) => {
+        // 各チャンクを並列で処理
+        const customerPromises = customerIdChunks.map(async (chunk) => {
         if (chunk.length === 1) {
           // 単一の顧客の場合は直接取得
           const customerDoc = await getDoc(doc(db, 'customers', chunk[0]))
