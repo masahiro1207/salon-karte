@@ -30,6 +30,13 @@
         >
           <span class="material-icons">chevron_right</span>
         </button>
+        <button
+          @click="forceRefresh"
+          class="p-2 hover:bg-green-100 rounded-full transition duration-200 text-green-600"
+          title="最新データを取得"
+        >
+          <span class="material-icons">refresh</span>
+        </button>
       </div>
     </div>
 
@@ -347,7 +354,7 @@ const isLoading = ref(false)
 const customerCache = ref(new Map())
 const menuCache = ref(new Map())
 const cacheTimestamp = ref(null)
-const CACHE_DURATION = 5 * 60 * 1000 // 5分間のキャッシュ
+const CACHE_DURATION = 2 * 60 * 1000 // 2分間のキャッシュ（新しいデータ反映のため短縮）
 
 // 週データのプリロードキャッシュ
 const weeklyCache = ref(new Map())
@@ -360,10 +367,10 @@ const loadCacheFromStorage = () => {
     const stored = localStorage.getItem(STORAGE_KEY)
     if (stored) {
       const parsed = JSON.parse(stored)
-      // 24時間以内のキャッシュのみ有効
-      const dayAgo = Date.now() - 24 * 60 * 60 * 1000
+      // 1時間以内のキャッシュのみ有効（新しいデータ反映のため短縮）
+      const hourAgo = Date.now() - 60 * 60 * 1000
       Object.entries(parsed).forEach(([key, value]) => {
-        if (value.timestamp > dayAgo) {
+        if (value.timestamp > hourAgo) {
           weeklyCache.value.set(key, value)
         }
       })
@@ -384,6 +391,25 @@ const saveCacheToStorage = () => {
     console.warn('Failed to save cache to storage:', e)
   }
 }
+
+// キャッシュをクリア（新しいデータが追加された時用）
+const clearCache = () => {
+  weeklyCache.value.clear()
+  customerCache.value.clear()
+  menuCache.value.clear()
+  cacheTimestamp.value = null
+  localStorage.removeItem(STORAGE_KEY)
+}
+
+// 強制リフレッシュ（キャッシュを無視して最新データを取得）
+const forceRefresh = async () => {
+  clearCache()
+  await fetchReservationsOptimized()
+}
+
+// グローバルにキャッシュクリア機能を公開
+window.clearSalonCache = clearCache
+window.refreshReservations = forceRefresh
 
 // 時間スロットの生成（9:00 から 20:00 まで30分間隔）
 const timeSlots = computed(() => {
@@ -438,10 +464,10 @@ const formatTime = (time) => {
 // 瞬時週移動（爆速システム）
 const previousWeek = () => {
   const newWeekStart = subWeeks(currentWeekStart.value, 1)
-  
+
   // 1. 即座に週を変更（ゼロ遅延）
   currentWeekStart.value = newWeekStart
-  
+
   // 2. キャッシュから瞬時表示を試行
   const cached = loadFromCache(newWeekStart)
   if (cached && cached.length > 0) {
@@ -456,10 +482,10 @@ const previousWeek = () => {
 
 const nextWeek = () => {
   const newWeekStart = addWeeks(currentWeekStart.value, 1)
-  
+
   // 1. 即座に週を変更（ゼロ遅延）
   currentWeekStart.value = newWeekStart
-  
+
   // 2. キャッシュから瞬時表示を試行
   const cached = loadFromCache(newWeekStart)
   if (cached && cached.length > 0) {
@@ -796,12 +822,12 @@ const getHistoryDataOptimized = async (customerIds) => {
 // 積極的プリロード（爆速システム）
 const aggressivePreload = async () => {
   if (isPreloading.value) return
-  
+
   isPreloading.value = true
-  
+
   try {
     const currentStart = new Date(currentWeekStart.value)
-    
+
     // 前後3週間をプリロード（超先読み）
     const weeksToPreload = []
     for (let i = -3; i <= 3; i++) {
@@ -813,19 +839,19 @@ const aggressivePreload = async () => {
         priority: Math.abs(i) // 近い週ほど高優先度
       })
     }
-    
+
     // 優先度順でプリロード
     weeksToPreload.sort((a, b) => a.priority - b.priority)
-    
+
     // 並列プリロード（最大3週同時）
     const chunks = []
     for (let i = 0; i < weeksToPreload.length; i += 3) {
       chunks.push(weeksToPreload.slice(i, i + 3))
     }
-    
+
     for (const chunk of chunks) {
       await Promise.all(
-        chunk.map(({ weekStart, direction }) => 
+        chunk.map(({ weekStart, direction }) =>
           preloadWeekData(weekStart, direction)
         )
       )
@@ -842,16 +868,16 @@ const aggressivePreload = async () => {
 // 隣の週をプリロード（従来版）
 const preloadAdjacentWeeks = async () => {
   if (isPreloading.value) return // 既にプリロード中
-  
+
   isPreloading.value = true
-  
+
   try {
     const currentStart = new Date(currentWeekStart.value)
-    
+
     // 前週と次週の開始日を計算
     const prevWeekStart = subWeeks(currentStart, 1)
     const nextWeekStart = addWeeks(currentStart, 1)
-    
+
     // 両方を並列でプリロード
     await Promise.all([
       preloadWeekData(prevWeekStart, 'prev'),
@@ -901,10 +927,10 @@ const preloadWeekData = async (weekStart, direction) => {
       timestamp: Date.now(),
       direction
     })
-    
+
     // ローカルストレージに永続化
     saveCacheToStorage()
-    
+
   } catch (e) {
     console.error(`Error preloading ${direction} week:`, e)
   }
@@ -914,52 +940,55 @@ const preloadWeekData = async (weekStart, direction) => {
 const loadFromCache = (weekStart) => {
   const weekKey = format(weekStart, 'yyyy-MM-dd')
   const cached = weeklyCache.value.get(weekKey)
-  
+
   if (cached && (Date.now() - cached.timestamp < CACHE_DURATION)) {
     return cached.reservations
   }
-  
+
   return null
 }
 
 // 瞬時予約表示（爆速モード）
 const displayInstantReservations = async (cachedReservations) => {
-  // 即座に基本データを表示
+  // キャッシュされた顧客データがあれば即座に表示
+  const customerIds = new Set()
+  cachedReservations.forEach((data) => {
+    if (data.customerId) customerIds.add(data.customerId)
+  })
+
+  // 顧客データを高速取得
+  const customerData = await getCustomerDataOptimized(customerIds)
+
+  // Loading表示なしで即座に完全データを表示
   const instantReservations = cachedReservations.map((data) => ({
     id: data.id,
     ...data,
-    customerName: 'Loading...', // 一瞬だけ表示
+    customerName: data.customerId
+      ? customerData.get(data.customerId)?.name || '不明'
+      : '不明',
     menu: data.menu || '不明',
     duration: 30,
     hasTreatmentHistory: false,
     latestHistory: null,
   }))
 
-  reservations.value = instantReservations
+    reservations.value = instantReservations
 
-  // 顧客名を非同期で即座更新（体感ゼロ遅延）
+  // メニューデータと履歴データを非同期で更新
   setTimeout(async () => {
-    const customerIds = new Set()
     const menuNames = new Set()
     cachedReservations.forEach((data) => {
-      if (data.customerId) customerIds.add(data.customerId)
       if (data.menu) menuNames.add(data.menu)
     })
 
-    // 超高速で顧客・メニューデータを取得
-    const [customerData, menuData] = await Promise.all([
-      getCustomerDataOptimized(customerIds),
-      getMenuDataOptimized(menuNames)
-    ])
+    // メニューデータを取得
+    const menuData = await getMenuDataOptimized(menuNames)
 
-    // 名前を瞬時更新
+    // メニュー情報を更新
     const updatedReservations = reservations.value.map((reservation) => ({
       ...reservation,
-      customerName: reservation.customerId 
-        ? customerData.get(reservation.customerId)?.name || '不明'
-        : '不明',
-      duration: reservation.menu 
-        ? menuData.get(reservation.menu)?.duration || 30 
+      duration: reservation.menu
+        ? menuData.get(reservation.menu)?.duration || 30
         : 30,
     }))
 
@@ -968,7 +997,7 @@ const displayInstantReservations = async (cachedReservations) => {
     // 履歴データは後回し（ユーザビリティ重視）
     setTimeout(async () => {
       const { allHistories, latestHistories } = await getHistoryDataOptimized(customerIds)
-      
+
       const finalReservations = reservations.value.map((reservation) => {
         const reservationDate = format(reservation.dateTime.toDate(), 'yyyy-MM-dd')
         const customerHistories = allHistories.get(reservation.customerId)
@@ -984,7 +1013,7 @@ const displayInstantReservations = async (cachedReservations) => {
 
       reservations.value = finalReservations
     }, 200) // 200ms後に履歴更新
-  }, 10) // 10ms後に名前更新（体感的に瞬時）
+  }, 5) // 5ms後に名前更新（ほぼ瞬時）
 }
 
 // 予約データの取得（旧関数）
@@ -1586,7 +1615,7 @@ const formatHistoryDateTime = (dateTime) => {
 onMounted(() => {
   // ローカルストレージからキャッシュを読み込み
   loadCacheFromStorage()
-  
+
   // URLクエリパラメータから週の開始日を取得
   const weekStartParam = route.query.weekStart
   if (weekStartParam) {
