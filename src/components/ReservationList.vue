@@ -428,11 +428,11 @@ const fetchReservations = async () => {
     // 顧客データを一括取得（最適化）
     const customerData = new Map()
     if (customerIds.size > 0) {
-      // customerIdsを100件ずつのチャンクに分割（Firestoreの'in'クエリの制限）
+      // customerIdsを30件ずつのチャンクに分割（Firestoreの'in'クエリの制限）
       const customerIdChunks = []
       const customerIdArray = Array.from(customerIds)
-      for (let i = 0; i < customerIdArray.length; i += 10) {
-        customerIdChunks.push(customerIdArray.slice(i, i + 10))
+      for (let i = 0; i < customerIdArray.length; i += 30) {
+        customerIdChunks.push(customerIdArray.slice(i, i + 30))
       }
 
       // 各チャンクを並列で処理
@@ -457,7 +457,7 @@ const fetchReservations = async () => {
           )
           const customersSnapshot = await getDocs(customersQuery)
           const results = []
-          
+
           customersSnapshot.forEach((doc) => {
             const data = doc.data()
             results.push({
@@ -466,14 +466,14 @@ const fetchReservations = async () => {
               ...data,
             })
           })
-          
+
           // 存在しない顧客IDのために不明データを追加
           chunk.forEach((customerId) => {
             if (!results.find(customer => customer.id === customerId)) {
               results.push({ id: customerId, name: '不明' })
             }
           })
-          
+
           return results
         }
       })
@@ -496,43 +496,50 @@ const fetchReservations = async () => {
       })
     }
 
-    // 施術履歴データを一括取得
+        // 施術履歴データを一括取得
     const allHistories = new Map()
     const latestHistories = new Map()
 
     if (customerIds.size > 0) {
-      // 週の範囲内の全ての施術履歴を取得
-      const historiesQuery = query(
-        collection(db, 'histories'),
-        where('customerId', 'in', Array.from(customerIds)),
-        where('dateTime', '>=', start),
-        where('dateTime', '<=', end)
-      )
-      const historiesSnapshot = await getDocs(historiesQuery)
+      // customerIdsを30件ずつのチャンクに分割（Firestoreの'in'クエリの制限）
+      const customerIdArray = Array.from(customerIds)
+      const historyPromises = []
 
-      historiesSnapshot.forEach((doc) => {
-        const historyData = doc.data()
-        const customerId = historyData.customerId
-        const historyDate = format(historyData.dateTime.toDate(), 'yyyy-MM-dd')
+      for (let i = 0; i < customerIdArray.length; i += 30) {
+        const chunk = customerIdArray.slice(i, i + 30)
+        const historiesQuery = query(
+          collection(db, 'histories'),
+          where('customerId', 'in', chunk),
+          where('dateTime', '>=', start),
+          where('dateTime', '<=', end)
+        )
+        historyPromises.push(getDocs(historiesQuery))
+      }
 
-        if (!allHistories.has(customerId)) {
-          allHistories.set(customerId, new Map())
-        }
-        if (!allHistories.get(customerId).has(historyDate)) {
-          allHistories.get(customerId).set(historyDate, [])
-        }
-        allHistories.get(customerId).get(historyDate).push({
-          id: doc.id,
-          ...historyData
+      const historiesSnapshots = await Promise.all(historyPromises)
+
+      // 全ての結果をマージ
+      historiesSnapshots.forEach(historiesSnapshot => {
+
+              historiesSnapshot.forEach((doc) => {
+          const historyData = doc.data()
+          const customerId = historyData.customerId
+          const historyDate = format(historyData.dateTime.toDate(), 'yyyy-MM-dd')
+
+          if (!allHistories.has(customerId)) {
+            allHistories.set(customerId, new Map())
+          }
+          if (!allHistories.get(customerId).has(historyDate)) {
+            allHistories.get(customerId).set(historyDate, [])
+          }
+          allHistories.get(customerId).get(historyDate).push({
+            id: doc.id,
+            ...historyData
+          })
         })
       })
 
-            // 各顧客の最新履歴を効率的に取得
-      const customerIdChunks = []
-      const customerIdArray = Array.from(customerIds)
-      for (let i = 0; i < customerIdArray.length; i += 10) {
-        customerIdChunks.push(customerIdArray.slice(i, i + 10))
-      }
+            // 各顧客の最新履歴を効率的に取得（重複チャンクを使用）
 
       const latestHistoriesPromises = customerIdChunks.map(async (chunk) => {
         // 各チャンクの顧客の最新履歴を取得
@@ -544,13 +551,13 @@ const fetchReservations = async () => {
             limit(1)
           )
           const latestSnapshot = await getDocs(latestQuery)
-          
+
           if (!latestSnapshot.empty) {
             const latestHistory = {
               id: latestSnapshot.docs[0].id,
               ...latestSnapshot.docs[0].data()
             }
-            
+
             // latestHistoryのdateTimeを正しく処理
             if (latestHistory.dateTime) {
               if (latestHistory.dateTime instanceof Timestamp) {
@@ -561,12 +568,12 @@ const fetchReservations = async () => {
                 latestHistory.dateTime = Timestamp.fromDate(new Date(latestHistory.dateTime))
               }
             }
-            
+
             return [customerId, latestHistory]
           }
           return null
         })
-        
+
         const results = await Promise.all(chunkPromises)
         return results.filter(result => result !== null)
       })
