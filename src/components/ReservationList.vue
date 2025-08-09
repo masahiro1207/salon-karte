@@ -425,25 +425,63 @@ const fetchReservations = async () => {
       reservationDocs.push({ id: doc.id, ...data })
     })
 
-    // 顧客データを一括取得
+    // 顧客データを一括取得（最適化）
     const customerData = new Map()
     if (customerIds.size > 0) {
-      const customerPromises = Array.from(customerIds).map(async (customerId) => {
-        const customerDoc = await getDoc(doc(db, 'customers', customerId))
-        if (customerDoc.exists()) {
-          const data = customerDoc.data()
-          return [
-            customerId,
-            {
+      // customerIdsを100件ずつのチャンクに分割（Firestoreの'in'クエリの制限）
+      const customerIdChunks = []
+      const customerIdArray = Array.from(customerIds)
+      for (let i = 0; i < customerIdArray.length; i += 10) {
+        customerIdChunks.push(customerIdArray.slice(i, i + 10))
+      }
+
+      // 各チャンクを並列で処理
+      const customerPromises = customerIdChunks.map(async (chunk) => {
+        if (chunk.length === 1) {
+          // 単一の顧客の場合は直接取得
+          const customerDoc = await getDoc(doc(db, 'customers', chunk[0]))
+          if (customerDoc.exists()) {
+            const data = customerDoc.data()
+            return [{
+              id: chunk[0],
               name: `${data.lastName || ''} ${data.firstName || ''}`.trim(),
               ...data,
-            },
-          ]
+            }]
+          }
+          return [{ id: chunk[0], name: '不明' }]
+        } else {
+          // 複数の顧客の場合はwhere inクエリを使用
+          const customersQuery = query(
+            collection(db, 'customers'),
+            where('__name__', 'in', chunk)
+          )
+          const customersSnapshot = await getDocs(customersQuery)
+          const results = []
+          
+          customersSnapshot.forEach((doc) => {
+            const data = doc.data()
+            results.push({
+              id: doc.id,
+              name: `${data.lastName || ''} ${data.firstName || ''}`.trim(),
+              ...data,
+            })
+          })
+          
+          // 存在しない顧客IDのために不明データを追加
+          chunk.forEach((customerId) => {
+            if (!results.find(customer => customer.id === customerId)) {
+              results.push({ id: customerId, name: '不明' })
+            }
+          })
+          
+          return results
         }
-        return [customerId, { name: '不明' }]
       })
-      const customers = await Promise.all(customerPromises)
-      customers.forEach(([id, data]) => customerData.set(id, data))
+
+      const customerChunkResults = await Promise.all(customerPromises)
+      customerChunkResults.flat().forEach((customer) => {
+        customerData.set(customer.id, customer)
+      })
     }
 
     // メニューデータを一括取得
@@ -489,36 +527,54 @@ const fetchReservations = async () => {
         })
       })
 
-      // 各顧客の最新履歴を取得
-      const latestHistoriesPromises = Array.from(customerIds).map(async (customerId) => {
-        const latestQuery = query(
-          collection(db, 'histories'),
-          where('customerId', '==', customerId),
-          orderBy('dateTime', 'desc'),
-          limit(1)
-        )
-        const latestSnapshot = await getDocs(latestQuery)
-        if (!latestSnapshot.empty) {
-          const latestHistory = {
-            id: latestSnapshot.docs[0].id,
-            ...latestSnapshot.docs[0].data()
-          }
+            // 各顧客の最新履歴を効率的に取得
+      const customerIdChunks = []
+      const customerIdArray = Array.from(customerIds)
+      for (let i = 0; i < customerIdArray.length; i += 10) {
+        customerIdChunks.push(customerIdArray.slice(i, i + 10))
+      }
 
-          // latestHistoryのdateTimeを正しく処理
-          if (latestHistory.dateTime) {
-            if (latestHistory.dateTime instanceof Timestamp) {
-              // 既にTimestampオブジェクトなので何もしない
-            } else if (typeof latestHistory.dateTime === 'object' && 'seconds' in latestHistory.dateTime) {
-              latestHistory.dateTime = new Timestamp(latestHistory.dateTime.seconds, latestHistory.dateTime.nanoseconds)
-            } else {
-              latestHistory.dateTime = Timestamp.fromDate(new Date(latestHistory.dateTime))
+      const latestHistoriesPromises = customerIdChunks.map(async (chunk) => {
+        // 各チャンクの顧客の最新履歴を取得
+        const chunkPromises = chunk.map(async (customerId) => {
+          const latestQuery = query(
+            collection(db, 'histories'),
+            where('customerId', '==', customerId),
+            orderBy('dateTime', 'desc'),
+            limit(1)
+          )
+          const latestSnapshot = await getDocs(latestQuery)
+          
+          if (!latestSnapshot.empty) {
+            const latestHistory = {
+              id: latestSnapshot.docs[0].id,
+              ...latestSnapshot.docs[0].data()
             }
+            
+            // latestHistoryのdateTimeを正しく処理
+            if (latestHistory.dateTime) {
+              if (latestHistory.dateTime instanceof Timestamp) {
+                // 既にTimestampオブジェクトなので何もしない
+              } else if (typeof latestHistory.dateTime === 'object' && 'seconds' in latestHistory.dateTime) {
+                latestHistory.dateTime = new Timestamp(latestHistory.dateTime.seconds, latestHistory.dateTime.nanoseconds)
+              } else {
+                latestHistory.dateTime = Timestamp.fromDate(new Date(latestHistory.dateTime))
+              }
+            }
+            
+            return [customerId, latestHistory]
           }
-
-          latestHistories.set(customerId, latestHistory)
-        }
+          return null
+        })
+        
+        const results = await Promise.all(chunkPromises)
+        return results.filter(result => result !== null)
       })
-      await Promise.all(latestHistoriesPromises)
+
+      const latestHistoryResults = await Promise.all(latestHistoriesPromises)
+      latestHistoryResults.flat().forEach(([customerId, latestHistory]) => {
+        latestHistories.set(customerId, latestHistory)
+      })
     }
 
     // 予約データを処理
