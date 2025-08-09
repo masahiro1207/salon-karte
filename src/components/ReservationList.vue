@@ -371,6 +371,21 @@ const loadCacheFromStorage = () => {
       const hourAgo = Date.now() - 60 * 60 * 1000
       Object.entries(parsed).forEach(([key, value]) => {
         if (value.timestamp > hourAgo) {
+          // Timestampオブジェクトを正しく復元
+          if (value.reservations) {
+            value.reservations = value.reservations.map(reservation => {
+              if (reservation.dateTime && typeof reservation.dateTime === 'object') {
+                // Firestore Timestampオブジェクトを復元
+                if (reservation.dateTime.seconds !== undefined) {
+                  reservation.dateTime = new Timestamp(
+                    reservation.dateTime.seconds,
+                    reservation.dateTime.nanoseconds || 0
+                  )
+                }
+              }
+              return reservation
+            })
+          }
           weeklyCache.value.set(key, value)
         }
       })
@@ -384,7 +399,18 @@ const saveCacheToStorage = () => {
   try {
     const cacheObj = {}
     weeklyCache.value.forEach((value, key) => {
-      cacheObj[key] = value
+      // Timestampオブジェクトをシリアライズ可能な形式に変換
+      const serializedValue = {
+        ...value,
+        reservations: value.reservations ? value.reservations.map(reservation => ({
+          ...reservation,
+          dateTime: reservation.dateTime ? {
+            seconds: reservation.dateTime.seconds,
+            nanoseconds: reservation.dateTime.nanoseconds
+          } : reservation.dateTime
+        })) : []
+      }
+      cacheObj[key] = serializedValue
     })
     localStorage.setItem(STORAGE_KEY, JSON.stringify(cacheObj))
   } catch (e) {
@@ -399,6 +425,16 @@ const clearCache = () => {
   menuCache.value.clear()
   cacheTimestamp.value = null
   localStorage.removeItem(STORAGE_KEY)
+}
+
+// 起動時に古いキャッシュを強制クリア（Timestampエラー回避）
+const clearOldCache = () => {
+  try {
+    localStorage.removeItem(STORAGE_KEY)
+    console.log('Old cache cleared to prevent Timestamp errors')
+  } catch (e) {
+    console.warn('Failed to clear old cache:', e)
+  }
 }
 
 // 強制リフレッシュ（キャッシュを無視して最新データを取得）
@@ -952,15 +988,26 @@ const loadFromCache = (weekStart) => {
 const displayInstantReservations = async (cachedReservations) => {
   // キャッシュされた顧客データがあれば即座に表示
   const customerIds = new Set()
-  cachedReservations.forEach((data) => {
+
+  // Timestampオブジェクトの正常性をチェック
+  const validReservations = cachedReservations.filter(data => {
     if (data.customerId) customerIds.add(data.customerId)
+
+    // dateTimeがTimestampでない場合は修正
+    if (data.dateTime && typeof data.dateTime === 'object' && !data.dateTime.toDate) {
+      if (data.dateTime.seconds !== undefined) {
+        data.dateTime = new Timestamp(data.dateTime.seconds, data.dateTime.nanoseconds || 0)
+      }
+    }
+
+    return data.dateTime && typeof data.dateTime.toDate === 'function'
   })
 
   // 顧客データを高速取得
   const customerData = await getCustomerDataOptimized(customerIds)
 
   // Loading表示なしで即座に完全データを表示
-  const instantReservations = cachedReservations.map((data) => ({
+  const instantReservations = validReservations.map((data) => ({
     id: data.id,
     ...data,
     customerName: data.customerId
@@ -1613,8 +1660,8 @@ const formatHistoryDateTime = (dateTime) => {
 }
 
 onMounted(() => {
-  // ローカルストレージからキャッシュを読み込み
-  loadCacheFromStorage()
+  // 古いキャッシュを強制クリア（Timestampエラー回避）
+  clearOldCache()
 
   // URLクエリパラメータから週の開始日を取得
   const weekStartParam = route.query.weekStart
@@ -1628,13 +1675,8 @@ onMounted(() => {
     currentWeekStart.value = today
   }
 
-  // キャッシュから即座に表示を試行
-  const cached = loadFromCache(currentWeekStart.value)
-  if (cached && cached.length > 0) {
-    displayInstantReservations(cached)
-  } else {
-    fetchReservationsOptimized()
-  }
+  // 初回は常にfetch（安全性重視）
+  fetchReservationsOptimized()
 })
 </script>
 
