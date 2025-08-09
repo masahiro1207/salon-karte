@@ -354,7 +354,6 @@ const weekDates = computed(() => {
     start,
     end,
   })
-  console.log('Generated week dates:', dates.map(d => format(d, 'yyyy-MM-dd')))
   return dates
 })
 
@@ -406,8 +405,6 @@ const fetchReservations = async () => {
     endDate.setHours(23, 59, 59, 999)
     const end = Timestamp.fromDate(endDate)
 
-    console.log('Fetching reservations between:', startDate, 'and', endDate)
-
     // 予約データの取得
     const q = query(
       collection(db, 'reservations'),
@@ -415,7 +412,6 @@ const fetchReservations = async () => {
       where('dateTime', '<=', end),
     )
     const querySnapshot = await getDocs(q)
-    console.log('Found reservations:', querySnapshot.size)
 
     // 必要なcustomerIdとmenuを収集
     const customerIds = new Set()
@@ -424,7 +420,6 @@ const fetchReservations = async () => {
 
     querySnapshot.forEach((doc) => {
       const data = doc.data()
-      console.log('Reservation data:', data) // 予約データの詳細をログ出力
       if (data.customerId) customerIds.add(data.customerId)
       if (data.menu) menuNames.add(data.menu)
       reservationDocs.push({ id: doc.id, ...data })
@@ -463,75 +458,97 @@ const fetchReservations = async () => {
       })
     }
 
-    // 予約データを取得した後、各予約の施術履歴を確認
-    const reservationData = await Promise.all(
-      reservationDocs.map(async (data) => {
-        // 顧客名の取得（元の方法を維持）
-        const customerName = data.customerId
-          ? customerData.get(data.customerId)?.name || '不明'
-          : '不明'
+    // 施術履歴データを一括取得
+    const allHistories = new Map()
+    const latestHistories = new Map()
 
-        // メニュー情報の取得（元の方法を維持）
-        const menu = data.menu || data.service || '不明'
-        const menuDuration = data.menu ? menuData.get(data.menu)?.duration || 30 : 30
+    if (customerIds.size > 0) {
+      // 週の範囲内の全ての施術履歴を取得
+      const historiesQuery = query(
+        collection(db, 'histories'),
+        where('customerId', 'in', Array.from(customerIds)),
+        where('dateTime', '>=', start),
+        where('dateTime', '<=', end)
+      )
+      const historiesSnapshot = await getDocs(historiesQuery)
 
-        // 予約IDまたは日付と顧客IDで施術履歴を確認
-        const reservationDate = data.dateTime.toDate()
-        const startOfDay = new Date(reservationDate)
-        startOfDay.setHours(0, 0, 0, 0)
-        const endOfDay = new Date(reservationDate)
-        endOfDay.setHours(23, 59, 59, 999)
+      historiesSnapshot.forEach((doc) => {
+        const historyData = doc.data()
+        const customerId = historyData.customerId
+        const historyDate = format(historyData.dateTime.toDate(), 'yyyy-MM-dd')
 
-        const historyQuery = query(
+        if (!allHistories.has(customerId)) {
+          allHistories.set(customerId, new Map())
+        }
+        if (!allHistories.get(customerId).has(historyDate)) {
+          allHistories.get(customerId).set(historyDate, [])
+        }
+        allHistories.get(customerId).get(historyDate).push({
+          id: doc.id,
+          ...historyData
+        })
+      })
+
+      // 各顧客の最新履歴を取得
+      const latestHistoriesPromises = Array.from(customerIds).map(async (customerId) => {
+        const latestQuery = query(
           collection(db, 'histories'),
-          where('customerId', '==', data.customerId),
-          where('dateTime', '>=', Timestamp.fromDate(startOfDay)),
-          where('dateTime', '<=', Timestamp.fromDate(endOfDay))
-        )
-
-        const historySnapshot = await getDocs(historyQuery)
-        const hasTreatmentHistory = !historySnapshot.empty
-
-        // 最新の施術履歴を取得
-        const latestHistoryQuery = query(
-          collection(db, 'histories'),
-          where('customerId', '==', data.customerId),
+          where('customerId', '==', customerId),
           orderBy('dateTime', 'desc'),
           limit(1)
         )
-        const latestHistorySnapshot = await getDocs(latestHistoryQuery)
-        const latestHistory = latestHistorySnapshot.empty ? null : {
-          id: latestHistorySnapshot.docs[0].id,
-          ...latestHistorySnapshot.docs[0].data()
-        }
-
-        // latestHistoryのdateTimeを正しく処理
-        if (latestHistory && latestHistory.dateTime) {
-          // FirestoreのTimestampオブジェクトの場合はそのまま保持
-          if (latestHistory.dateTime instanceof Timestamp) {
-            // 既にTimestampオブジェクトなので何もしない
-          } else if (typeof latestHistory.dateTime === 'object' && 'seconds' in latestHistory.dateTime) {
-            // Firestoreのタイムスタンプ形式の場合
-            latestHistory.dateTime = new Timestamp(latestHistory.dateTime.seconds, latestHistory.dateTime.nanoseconds)
-          } else {
-            // その他の場合は新しいTimestampを作成
-            latestHistory.dateTime = Timestamp.fromDate(new Date(latestHistory.dateTime))
+        const latestSnapshot = await getDocs(latestQuery)
+        if (!latestSnapshot.empty) {
+          const latestHistory = {
+            id: latestSnapshot.docs[0].id,
+            ...latestSnapshot.docs[0].data()
           }
-        }
 
-        return {
-          id: data.id,
-          ...data,
-          customerName,
-          menu,
-          duration: menuDuration,
-          hasTreatmentHistory,
-          latestHistory,
-        }
-      }),
-    )
+          // latestHistoryのdateTimeを正しく処理
+          if (latestHistory.dateTime) {
+            if (latestHistory.dateTime instanceof Timestamp) {
+              // 既にTimestampオブジェクトなので何もしない
+            } else if (typeof latestHistory.dateTime === 'object' && 'seconds' in latestHistory.dateTime) {
+              latestHistory.dateTime = new Timestamp(latestHistory.dateTime.seconds, latestHistory.dateTime.nanoseconds)
+            } else {
+              latestHistory.dateTime = Timestamp.fromDate(new Date(latestHistory.dateTime))
+            }
+          }
 
-    console.log('Processed reservations:', reservationData)
+          latestHistories.set(customerId, latestHistory)
+        }
+      })
+      await Promise.all(latestHistoriesPromises)
+    }
+
+    // 予約データを処理
+    const reservationData = reservationDocs.map((data) => {
+      // 顧客名の取得
+      const customerName = data.customerId
+        ? customerData.get(data.customerId)?.name || '不明'
+        : '不明'
+
+      // メニュー情報の取得
+      const menu = data.menu || data.service || '不明'
+      const menuDuration = data.menu ? menuData.get(data.menu)?.duration || 30 : 30
+
+      // 施術履歴の確認
+      const reservationDate = format(data.dateTime.toDate(), 'yyyy-MM-dd')
+      const customerHistories = allHistories.get(data.customerId)
+      const hasTreatmentHistory = customerHistories && customerHistories.has(reservationDate)
+      const latestHistory = latestHistories.get(data.customerId) || null
+
+      return {
+        id: data.id,
+        ...data,
+        customerName,
+        menu,
+        duration: menuDuration,
+        hasTreatmentHistory,
+        latestHistory,
+      }
+    })
+
     reservations.value = reservationData
   } catch (e) {
     console.error('Error fetching reservations:', e)
@@ -549,13 +566,6 @@ const reservationMap = computed(() => {
     // 日付をローカルタイムゾーンで取得
     const dateKey = format(startTime, 'yyyy-MM-dd')
     const timeKey = format(startTime, 'HH:mm')
-
-    console.log('Mapping reservation:', {
-      dateKey,
-      timeKey,
-      customerName: reservation.customerName,
-      menu: reservation.menu,
-    })
 
     if (!map.has(dateKey)) {
       map.set(dateKey, new Map())
@@ -684,19 +694,13 @@ const getDayReservations = (date) => {
   const dateKey = format(date, 'yyyy-MM-dd')
   const dayReservations = []
 
-  console.log('Looking for reservations on:', dateKey)
-  console.log('Total reservations:', reservations.value.length)
-
   reservations.value.forEach((reservation) => {
     if (!reservation.dateTime) return
     const reservationDate = format(reservation.dateTime.toDate(), 'yyyy-MM-dd')
-    console.log('Reservation date:', reservationDate, 'Customer:', reservation.customerName)
     if (reservationDate === dateKey) {
       dayReservations.push(reservation)
     }
   })
-
-  console.log('Found reservations for', dateKey, ':', dayReservations.length)
 
   // 時間順にソート
   return dayReservations.sort((a, b) => {
@@ -725,8 +729,6 @@ const handleTimeSlotClick = (date, time) => {
     const [hours, minutes] = time.split(':').map(Number)
     const datetime = new Date(date)
     datetime.setHours(hours, minutes, 0, 0)
-
-    console.log('クリックされた日時:', datetime)
 
     // ローカル時間をそのまま送信
     router
@@ -774,9 +776,7 @@ const addSales = (reservation) => {
 const confirmDeleteReservation = async (reservation) => {
   if (confirm('この予約を削除してもよろしいですか？')) {
     try {
-      console.log('予約削除開始:', reservation.id)
       await deleteDoc(doc(db, 'reservations', reservation.id))
-      console.log('予約削除完了')
       selectedReservation.value = null
       // 予約一覧を更新
       await fetchReservations()
@@ -793,7 +793,6 @@ const handleReservationClick = (reservation) => {
 
 // 日付クリック時の処理
 const handleDateClick = (date) => {
-  console.log('Date clicked:', format(date, 'yyyy-MM-dd'))
   selectedDate.value = date
 }
 
@@ -843,7 +842,6 @@ onMounted(() => {
     currentWeekStart.value = today
   }
 
-  console.log('Current week start:', currentWeekStart.value)
   fetchReservations()
 })
 </script>
