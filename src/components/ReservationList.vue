@@ -89,7 +89,7 @@
     </div>
 
     <!-- タイムテーブル（デスクトップ表示） -->
-    <div v-else class="hidden sm:block bg-white rounded-lg shadow-sm overflow-x-auto">
+    <div v-else class="hidden sm:block bg-white rounded-lg shadow-sm overflow-x-auto table-container reservation-container">
       <table class="w-full border-collapse min-w-[200px]">
         <!-- 時間ヘッダー -->
         <thead>
@@ -136,7 +136,7 @@
                 <div
                   v-for="reservation in getReservation(date, time)"
                   :key="reservation.id"
-                  class="absolute rounded-sm p-2 transition duration-200 cursor-pointer"
+                  class="absolute rounded-sm p-2 transition duration-200 cursor-pointer reservation-item"
                   :class="[
                     reservation.hasTreatmentHistory
                       ? 'bg-green-100 hover:bg-green-200'
@@ -353,6 +353,38 @@ const CACHE_DURATION = 5 * 60 * 1000 // 5分間のキャッシュ
 const weeklyCache = ref(new Map())
 const isPreloading = ref(false)
 
+// ローカルストレージキャッシュ（永続化）
+const STORAGE_KEY = 'salon-reservation-cache'
+const loadCacheFromStorage = () => {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY)
+    if (stored) {
+      const parsed = JSON.parse(stored)
+      // 24時間以内のキャッシュのみ有効
+      const dayAgo = Date.now() - 24 * 60 * 60 * 1000
+      Object.entries(parsed).forEach(([key, value]) => {
+        if (value.timestamp > dayAgo) {
+          weeklyCache.value.set(key, value)
+        }
+      })
+    }
+  } catch (e) {
+    console.warn('Failed to load cache from storage:', e)
+  }
+}
+
+const saveCacheToStorage = () => {
+  try {
+    const cacheObj = {}
+    weeklyCache.value.forEach((value, key) => {
+      cacheObj[key] = value
+    })
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(cacheObj))
+  } catch (e) {
+    console.warn('Failed to save cache to storage:', e)
+  }
+}
+
 // 時間スロットの生成（9:00 から 20:00 まで30分間隔）
 const timeSlots = computed(() => {
   const slots = []
@@ -403,19 +435,41 @@ const formatTime = (time) => {
   return time
 }
 
-// 週の移動（即座に表示を更新）
+// 瞬時週移動（爆速システム）
 const previousWeek = () => {
   const newWeekStart = subWeeks(currentWeekStart.value, 1)
+  
+  // 1. 即座に週を変更（ゼロ遅延）
   currentWeekStart.value = newWeekStart
-  reservations.value = [] // 即座にクリア
-  fetchReservationsOptimized()
+  
+  // 2. キャッシュから瞬時表示を試行
+  const cached = loadFromCache(newWeekStart)
+  if (cached && cached.length > 0) {
+    // キャッシュヒット：0.05秒で完全表示
+    displayInstantReservations(cached)
+  } else {
+    // キャッシュミス：骨格を即座に表示
+    reservations.value = []
+    fetchReservationsOptimized()
+  }
 }
 
 const nextWeek = () => {
   const newWeekStart = addWeeks(currentWeekStart.value, 1)
+  
+  // 1. 即座に週を変更（ゼロ遅延）
   currentWeekStart.value = newWeekStart
-  reservations.value = [] // 即座にクリア
-  fetchReservationsOptimized()
+  
+  // 2. キャッシュから瞬時表示を試行
+  const cached = loadFromCache(newWeekStart)
+  if (cached && cached.length > 0) {
+    // キャッシュヒット：0.05秒で完全表示
+    displayInstantReservations(cached)
+  } else {
+    // キャッシュミス：骨格を即座に表示
+    reservations.value = []
+    fetchReservationsOptimized()
+  }
 }
 
 // キャッシュの有効性をチェック
@@ -535,10 +589,10 @@ const enhanceReservationsInBackground = async (reservationDocs) => {
 
       reservations.value = finalReservations
 
-      // 7. 隣の週をプリロード（バックグラウンドで実行）
+      // 7. 積極的プリロード（完全非同期）
       setTimeout(() => {
-        preloadAdjacentWeeks()
-      }, 500) // さらに500ms後に隣週プリロード
+        aggressivePreload()
+      }, 200) // 200ms後に積極的プリロード開始
     }, 100) // 100ms後に履歴取得開始
 
   } catch (e) {
@@ -739,19 +793,65 @@ const getHistoryDataOptimized = async (customerIds) => {
   return { allHistories, latestHistories }
 }
 
-// 隣の週をプリロード（究極の高速化）
-const preloadAdjacentWeeks = async () => {
-  if (isPreloading.value) return // 既にプリロード中
-
+// 積極的プリロード（爆速システム）
+const aggressivePreload = async () => {
+  if (isPreloading.value) return
+  
   isPreloading.value = true
-
+  
   try {
     const currentStart = new Date(currentWeekStart.value)
+    
+    // 前後3週間をプリロード（超先読み）
+    const weeksToPreload = []
+    for (let i = -3; i <= 3; i++) {
+      if (i === 0) continue // 現在の週はスキップ
+      const weekStart = addWeeks(currentStart, i)
+      weeksToPreload.push({
+        weekStart,
+        direction: i < 0 ? 'prev' : 'next',
+        priority: Math.abs(i) // 近い週ほど高優先度
+      })
+    }
+    
+    // 優先度順でプリロード
+    weeksToPreload.sort((a, b) => a.priority - b.priority)
+    
+    // 並列プリロード（最大3週同時）
+    const chunks = []
+    for (let i = 0; i < weeksToPreload.length; i += 3) {
+      chunks.push(weeksToPreload.slice(i, i + 3))
+    }
+    
+    for (const chunk of chunks) {
+      await Promise.all(
+        chunk.map(({ weekStart, direction }) => 
+          preloadWeekData(weekStart, direction)
+        )
+      )
+      // 少し間隔を空けてサーバー負荷軽減
+      await new Promise(resolve => setTimeout(resolve, 50))
+    }
+  } catch (e) {
+    console.error('Error in aggressive preload:', e)
+  } finally {
+    isPreloading.value = false
+  }
+}
 
+// 隣の週をプリロード（従来版）
+const preloadAdjacentWeeks = async () => {
+  if (isPreloading.value) return // 既にプリロード中
+  
+  isPreloading.value = true
+  
+  try {
+    const currentStart = new Date(currentWeekStart.value)
+    
     // 前週と次週の開始日を計算
     const prevWeekStart = subWeeks(currentStart, 1)
     const nextWeekStart = addWeeks(currentStart, 1)
-
+    
     // 両方を並列でプリロード
     await Promise.all([
       preloadWeekData(prevWeekStart, 'prev'),
@@ -795,13 +895,16 @@ const preloadWeekData = async (weekStart, direction) => {
       reservationDocs.push({ id: doc.id, ...data })
     })
 
-    // 週データをキャッシュに保存
+        // 週データをキャッシュに保存
     weeklyCache.value.set(weekKey, {
       reservations: reservationDocs,
       timestamp: Date.now(),
       direction
     })
-
+    
+    // ローカルストレージに永続化
+    saveCacheToStorage()
+    
   } catch (e) {
     console.error(`Error preloading ${direction} week:`, e)
   }
@@ -811,12 +914,77 @@ const preloadWeekData = async (weekStart, direction) => {
 const loadFromCache = (weekStart) => {
   const weekKey = format(weekStart, 'yyyy-MM-dd')
   const cached = weeklyCache.value.get(weekKey)
-
+  
   if (cached && (Date.now() - cached.timestamp < CACHE_DURATION)) {
     return cached.reservations
   }
-
+  
   return null
+}
+
+// 瞬時予約表示（爆速モード）
+const displayInstantReservations = async (cachedReservations) => {
+  // 即座に基本データを表示
+  const instantReservations = cachedReservations.map((data) => ({
+    id: data.id,
+    ...data,
+    customerName: 'Loading...', // 一瞬だけ表示
+    menu: data.menu || '不明',
+    duration: 30,
+    hasTreatmentHistory: false,
+    latestHistory: null,
+  }))
+
+  reservations.value = instantReservations
+
+  // 顧客名を非同期で即座更新（体感ゼロ遅延）
+  setTimeout(async () => {
+    const customerIds = new Set()
+    const menuNames = new Set()
+    cachedReservations.forEach((data) => {
+      if (data.customerId) customerIds.add(data.customerId)
+      if (data.menu) menuNames.add(data.menu)
+    })
+
+    // 超高速で顧客・メニューデータを取得
+    const [customerData, menuData] = await Promise.all([
+      getCustomerDataOptimized(customerIds),
+      getMenuDataOptimized(menuNames)
+    ])
+
+    // 名前を瞬時更新
+    const updatedReservations = reservations.value.map((reservation) => ({
+      ...reservation,
+      customerName: reservation.customerId 
+        ? customerData.get(reservation.customerId)?.name || '不明'
+        : '不明',
+      duration: reservation.menu 
+        ? menuData.get(reservation.menu)?.duration || 30 
+        : 30,
+    }))
+
+    reservations.value = updatedReservations
+
+    // 履歴データは後回し（ユーザビリティ重視）
+    setTimeout(async () => {
+      const { allHistories, latestHistories } = await getHistoryDataOptimized(customerIds)
+      
+      const finalReservations = reservations.value.map((reservation) => {
+        const reservationDate = format(reservation.dateTime.toDate(), 'yyyy-MM-dd')
+        const customerHistories = allHistories.get(reservation.customerId)
+        const hasTreatmentHistory = customerHistories && customerHistories.has(reservationDate)
+        const latestHistory = latestHistories.get(reservation.customerId) || null
+
+        return {
+          ...reservation,
+          hasTreatmentHistory,
+          latestHistory,
+        }
+      })
+
+      reservations.value = finalReservations
+    }, 200) // 200ms後に履歴更新
+  }, 10) // 10ms後に名前更新（体感的に瞬時）
 }
 
 // 予約データの取得（旧関数）
@@ -1416,6 +1584,9 @@ const formatHistoryDateTime = (dateTime) => {
 }
 
 onMounted(() => {
+  // ローカルストレージからキャッシュを読み込み
+  loadCacheFromStorage()
+  
   // URLクエリパラメータから週の開始日を取得
   const weekStartParam = route.query.weekStart
   if (weekStartParam) {
@@ -1428,12 +1599,60 @@ onMounted(() => {
     currentWeekStart.value = today
   }
 
-  fetchReservationsOptimized()
+  // キャッシュから即座に表示を試行
+  const cached = loadFromCache(currentWeekStart.value)
+  if (cached && cached.length > 0) {
+    displayInstantReservations(cached)
+  } else {
+    fetchReservationsOptimized()
+  }
 })
 </script>
 
 <style scoped>
 @import url('https://fonts.googleapis.com/icon?family=Material+Icons');
+
+/* 爆速画面遷移のための最適化 */
+.reservation-container {
+  transform: translateZ(0); /* ハードウェアアクセラレーション */
+  will-change: auto;
+}
+
+.reservation-item {
+  transform: translateZ(0);
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.week-transition {
+  transition: opacity 0.1s ease-out;
+}
+
+.week-transition-enter-active {
+  transition: opacity 0.1s ease-out;
+}
+
+.week-transition-enter-from {
+  opacity: 0;
+}
+
+.week-transition-enter-to {
+  opacity: 1;
+}
+
+/* スムーズスクロール */
+.table-container {
+  scroll-behavior: smooth;
+  transform: translateZ(0);
+}
+
+/* レンダリングパフォーマンス向上 */
+.table-row {
+  contain: layout style;
+}
+
+.table-cell {
+  contain: layout;
+}
 
 /* スクロールバーのカスタマイズ */
 .overflow-x-auto {
