@@ -34,7 +34,7 @@
     </div>
 
     <!-- タイムテーブル（モバイル表示） -->
-    <div class="block sm:hidden bg-white rounded-lg shadow-sm">
+    <div v-if="!isLoading" class="block sm:hidden bg-white rounded-lg shadow-sm">
       <div v-for="date in weekDates" :key="date" class="border-b last:border-b-0">
         <div
           class="p-4 bg-gray-50 cursor-pointer hover:bg-gray-100 transition duration-200"
@@ -80,8 +80,16 @@
       </div>
     </div>
 
+    <!-- ローディング表示 -->
+    <div v-if="isLoading" class="bg-white rounded-lg shadow-sm p-8 text-center">
+      <div class="flex items-center justify-center space-x-2">
+        <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-color3"></div>
+        <span class="text-gray-600">予約データを読み込み中...</span>
+      </div>
+    </div>
+
     <!-- タイムテーブル（デスクトップ表示） -->
-    <div class="hidden sm:block bg-white rounded-lg shadow-sm overflow-x-auto">
+    <div v-else class="hidden sm:block bg-white rounded-lg shadow-sm overflow-x-auto">
       <table class="w-full border-collapse min-w-[200px]">
         <!-- 時間ヘッダー -->
         <thead>
@@ -332,6 +340,7 @@ const reservations = ref([])
 const selectedReservation = ref(null)
 const selectedDate = ref(null)
 const currentWeekStart = ref(new Date())
+const isLoading = ref(false)
 
 // キャッシュ用変数
 const customerCache = ref(new Map())
@@ -410,6 +419,7 @@ const isCacheValid = () => {
 
 // 予約データの取得
 const fetchReservations = async () => {
+  isLoading.value = true
   try {
     const startDate = new Date(currentWeekStart.value)
     startDate.setHours(0, 0, 0, 0)
@@ -592,29 +602,37 @@ const fetchReservations = async () => {
         })
       })
 
-            // 各顧客の最新履歴を効率的に取得
-      const latestCustomerIdChunks = []
-      for (let i = 0; i < customerIdArray.length; i += 30) {
-        latestCustomerIdChunks.push(customerIdArray.slice(i, i + 30))
-      }
-
-      const latestHistoriesPromises = latestCustomerIdChunks.map(async (chunk) => {
-        // 各チャンクの顧客の最新履歴を取得
-        const chunkPromises = chunk.map(async (customerId) => {
-          const latestQuery = query(
-            collection(db, 'histories'),
-            where('customerId', '==', customerId),
-            orderBy('dateTime', 'desc'),
-            limit(1)
-          )
-          const latestSnapshot = await getDocs(latestQuery)
-
-          if (!latestSnapshot.empty) {
-            const latestHistory = {
-              id: latestSnapshot.docs[0].id,
-              ...latestSnapshot.docs[0].data()
-            }
-
+                  // 最新履歴を高速取得（単一クエリで全取得）
+      if (customerIdArray.length > 0) {
+        // 全顧客の履歴を一括取得し、後でソート
+        const allHistoriesQuery = query(
+          collection(db, 'histories'),
+          where('customerId', 'in', customerIdArray.slice(0, 30)) // 30件制限
+        )
+        const allHistoriesSnapshot = await getDocs(allHistoriesQuery)
+        
+        // 顧客ごとに履歴をグループ化
+        const customerHistoryMap = new Map()
+        allHistoriesSnapshot.forEach((doc) => {
+          const historyData = { id: doc.id, ...doc.data() }
+          const customerId = historyData.customerId
+          
+          if (!customerHistoryMap.has(customerId)) {
+            customerHistoryMap.set(customerId, [])
+          }
+          customerHistoryMap.get(customerId).push(historyData)
+        })
+        
+        // 各顧客の最新履歴を特定
+        customerHistoryMap.forEach((histories, customerId) => {
+          if (histories.length > 0) {
+            // 日時でソートして最新を取得
+            const latestHistory = histories.sort((a, b) => {
+              const aTime = a.dateTime instanceof Timestamp ? a.dateTime.toDate() : new Date(a.dateTime)
+              const bTime = b.dateTime instanceof Timestamp ? b.dateTime.toDate() : new Date(b.dateTime)
+              return bTime - aTime
+            })[0]
+            
             // latestHistoryのdateTimeを正しく処理
             if (latestHistory.dateTime) {
               if (latestHistory.dateTime instanceof Timestamp) {
@@ -625,20 +643,54 @@ const fetchReservations = async () => {
                 latestHistory.dateTime = Timestamp.fromDate(new Date(latestHistory.dateTime))
               }
             }
-
-            return [customerId, latestHistory]
+            
+            latestHistories.set(customerId, latestHistory)
           }
-          return null
         })
-
-        const results = await Promise.all(chunkPromises)
-        return results.filter(result => result !== null)
-      })
-
-      const latestHistoryResults = await Promise.all(latestHistoriesPromises)
-      latestHistoryResults.flat().forEach(([customerId, latestHistory]) => {
-        latestHistories.set(customerId, latestHistory)
-      })
+        
+        // 30件を超える場合は残りも処理（必要に応じて）
+        if (customerIdArray.length > 30) {
+          for (let i = 30; i < customerIdArray.length; i += 30) {
+            const chunk = customerIdArray.slice(i, i + 30)
+            const remainingQuery = query(
+              collection(db, 'histories'),
+              where('customerId', 'in', chunk)
+            )
+            const remainingSnapshot = await getDocs(remainingQuery)
+            
+            const remainingMap = new Map()
+            remainingSnapshot.forEach((doc) => {
+              const historyData = { id: doc.id, ...doc.data() }
+              const customerId = historyData.customerId
+              
+              if (!remainingMap.has(customerId)) {
+                remainingMap.set(customerId, [])
+              }
+              remainingMap.get(customerId).push(historyData)
+            })
+            
+            remainingMap.forEach((histories, customerId) => {
+              if (histories.length > 0) {
+                const latestHistory = histories.sort((a, b) => {
+                  const aTime = a.dateTime instanceof Timestamp ? a.dateTime.toDate() : new Date(a.dateTime)
+                  const bTime = b.dateTime instanceof Timestamp ? b.dateTime.toDate() : new Date(b.dateTime)
+                  return bTime - aTime
+                })[0]
+                
+                if (latestHistory.dateTime && !(latestHistory.dateTime instanceof Timestamp)) {
+                  if (typeof latestHistory.dateTime === 'object' && 'seconds' in latestHistory.dateTime) {
+                    latestHistory.dateTime = new Timestamp(latestHistory.dateTime.seconds, latestHistory.dateTime.nanoseconds)
+                  } else {
+                    latestHistory.dateTime = Timestamp.fromDate(new Date(latestHistory.dateTime))
+                  }
+                }
+                
+                latestHistories.set(customerId, latestHistory)
+              }
+            })
+          }
+        }
+      }
     }
 
     // 予約データを処理
@@ -677,6 +729,8 @@ const fetchReservations = async () => {
     }
   } catch (e) {
     console.error('Error fetching reservations:', e)
+  } finally {
+    isLoading.value = false
   }
 }
 
