@@ -539,9 +539,13 @@ const fetchReservations = async () => {
         })
       })
 
-            // 各顧客の最新履歴を効率的に取得（重複チャンクを使用）
+            // 各顧客の最新履歴を効率的に取得
+      const latestCustomerIdChunks = []
+      for (let i = 0; i < customerIdArray.length; i += 30) {
+        latestCustomerIdChunks.push(customerIdArray.slice(i, i + 30))
+      }
 
-      const latestHistoriesPromises = customerIdChunks.map(async (chunk) => {
+      const latestHistoriesPromises = latestCustomerIdChunks.map(async (chunk) => {
         // 各チャンクの顧客の最新履歴を取得
         const chunkPromises = chunk.map(async (customerId) => {
           const latestQuery = query(
