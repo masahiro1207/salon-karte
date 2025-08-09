@@ -147,7 +147,8 @@
                     left: '0',
                     width: `${calculateReservationSpan(reservation) * 100}%`,
                     ...calculateReservationPosition(reservation),
-                    height: '3.5rem',
+                    height: '3.2rem',
+                    marginBottom: '0.4rem',
                     borderLeft: `3px solid ${reservation.hasTreatmentHistory ? '#10B981' : '#6366F1'}`,
                     zIndex: 1,
                   }"
@@ -348,6 +349,10 @@ const menuCache = ref(new Map())
 const cacheTimestamp = ref(null)
 const CACHE_DURATION = 5 * 60 * 1000 // 5分間のキャッシュ
 
+// 週データのプリロードキャッシュ
+const weeklyCache = ref(new Map())
+const isPreloading = ref(false)
+
 // 時間スロットの生成（9:00 から 20:00 まで30分間隔）
 const timeSlots = computed(() => {
   const slots = []
@@ -434,19 +439,28 @@ const fetchReservationsOptimized = async () => {
     endDate.setHours(23, 59, 59, 999)
     const end = Timestamp.fromDate(endDate)
 
-    // 1. 最優先：予約データのみを超高速取得
-    const q = query(
-      collection(db, 'reservations'),
-      where('dateTime', '>=', start),
-      where('dateTime', '<=', end),
-    )
-    const querySnapshot = await getDocs(q)
+    // 1. キャッシュから超高速取得を試行
+    const cachedReservations = loadFromCache(currentWeekStart.value)
 
-    const reservationDocs = []
-    querySnapshot.forEach((doc) => {
-      const data = doc.data()
-      reservationDocs.push({ id: doc.id, ...data })
-    })
+    let reservationDocs = []
+
+    if (cachedReservations) {
+      // キャッシュヒット：瞬時に表示
+      reservationDocs = cachedReservations
+    } else {
+      // キャッシュミス：通常の取得
+      const q = query(
+        collection(db, 'reservations'),
+        where('dateTime', '>=', start),
+        where('dateTime', '<=', end),
+      )
+      const querySnapshot = await getDocs(q)
+
+      querySnapshot.forEach((doc) => {
+        const data = doc.data()
+        reservationDocs.push({ id: doc.id, ...data })
+      })
+    }
 
     // 2. 即座に基本データを表示（顧客名は後で更新）
     const basicReservations = reservationDocs.map((data) => ({
@@ -520,6 +534,11 @@ const enhanceReservationsInBackground = async (reservationDocs) => {
       })
 
       reservations.value = finalReservations
+
+      // 7. 隣の週をプリロード（バックグラウンドで実行）
+      setTimeout(() => {
+        preloadAdjacentWeeks()
+      }, 500) // さらに500ms後に隣週プリロード
     }, 100) // 100ms後に履歴取得開始
 
   } catch (e) {
@@ -718,6 +737,86 @@ const getHistoryDataOptimized = async (customerIds) => {
   }
 
   return { allHistories, latestHistories }
+}
+
+// 隣の週をプリロード（究極の高速化）
+const preloadAdjacentWeeks = async () => {
+  if (isPreloading.value) return // 既にプリロード中
+
+  isPreloading.value = true
+
+  try {
+    const currentStart = new Date(currentWeekStart.value)
+
+    // 前週と次週の開始日を計算
+    const prevWeekStart = subWeeks(currentStart, 1)
+    const nextWeekStart = addWeeks(currentStart, 1)
+
+    // 両方を並列でプリロード
+    await Promise.all([
+      preloadWeekData(prevWeekStart, 'prev'),
+      preloadWeekData(nextWeekStart, 'next')
+    ])
+  } catch (e) {
+    console.error('Error preloading adjacent weeks:', e)
+  } finally {
+    isPreloading.value = false
+  }
+}
+
+// 特定の週のデータをプリロード
+const preloadWeekData = async (weekStart, direction) => {
+  const weekKey = format(weekStart, 'yyyy-MM-dd')
+
+  // 既にキャッシュされている場合はスキップ
+  if (weeklyCache.value.has(weekKey)) return
+
+  try {
+    const startDate = new Date(weekStart)
+    startDate.setHours(0, 0, 0, 0)
+    const start = Timestamp.fromDate(startDate)
+
+    const endDate = new Date(weekStart)
+    endDate.setDate(endDate.getDate() + 6)
+    endDate.setHours(23, 59, 59, 999)
+    const end = Timestamp.fromDate(endDate)
+
+    // 予約データのみを取得（軽量）
+    const q = query(
+      collection(db, 'reservations'),
+      where('dateTime', '>=', start),
+      where('dateTime', '<=', end),
+    )
+    const querySnapshot = await getDocs(q)
+
+    const reservationDocs = []
+    querySnapshot.forEach((doc) => {
+      const data = doc.data()
+      reservationDocs.push({ id: doc.id, ...data })
+    })
+
+    // 週データをキャッシュに保存
+    weeklyCache.value.set(weekKey, {
+      reservations: reservationDocs,
+      timestamp: Date.now(),
+      direction
+    })
+
+  } catch (e) {
+    console.error(`Error preloading ${direction} week:`, e)
+  }
+}
+
+// キャッシュからの高速データ取得
+const loadFromCache = (weekStart) => {
+  const weekKey = format(weekStart, 'yyyy-MM-dd')
+  const cached = weeklyCache.value.get(weekKey)
+
+  if (cached && (Date.now() - cached.timestamp < CACHE_DURATION)) {
+    return cached.reservations
+  }
+
+  return null
 }
 
 // 予約データの取得（旧関数）
@@ -1143,20 +1242,25 @@ const calculateReservationSpan = (reservation) => {
   return Math.ceil(duration / 30)
 }
 
-// 予約の位置を計算
+// 予約の位置を計算（余白を考慮した改善版）
 const calculateReservationPosition = (reservation) => {
   if (!reservation || !reservation.dateTime) return { top: 0 }
   const laneIndex = reservation.laneIndex || 0
+  const topOffset = laneIndex * 4.2 + 0.1 // 上部に少し余白
   return {
-    top: `${laneIndex * 4}rem`,
+    top: `${topOffset}rem`,
   }
 }
 
-// セルの高さを計算
+// セルの高さを計算（余白を考慮した改善版）
 const calculateCellHeight = (date) => {
   const dateKey = format(date, 'yyyy-MM-dd')
   const lanes = calculateLanes.value.get(dateKey) || 1
-  return `${Math.max(lanes * 4, 4)}rem`
+  // 基本高さ + 各レーンの高さ + 余白
+  const baseHeight = 4
+  const laneHeight = 4.2 // 予約要素 + マージン分
+  const totalHeight = Math.max(lanes * laneHeight + 0.5, baseHeight)
+  return `${totalHeight}rem`
 }
 
 // 予約の終了時間をフォーマット
