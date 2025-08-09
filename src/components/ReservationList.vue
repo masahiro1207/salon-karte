@@ -333,6 +333,12 @@ const selectedReservation = ref(null)
 const selectedDate = ref(null)
 const currentWeekStart = ref(new Date())
 
+// キャッシュ用変数
+const customerCache = ref(new Map())
+const menuCache = ref(new Map())
+const cacheTimestamp = ref(null)
+const CACHE_DURATION = 5 * 60 * 1000 // 5分間のキャッシュ
+
 // 時間スロットの生成（9:00 から 20:00 まで30分間隔）
 const timeSlots = computed(() => {
   const slots = []
@@ -394,6 +400,14 @@ const nextWeek = () => {
   fetchReservations()
 }
 
+// キャッシュの有効性をチェック
+const isCacheValid = () => {
+  return cacheTimestamp.value &&
+         (Date.now() - cacheTimestamp.value) < CACHE_DURATION &&
+         customerCache.value.size > 0 &&
+         menuCache.value.size > 0
+}
+
 // 予約データの取得
 const fetchReservations = async () => {
   try {
@@ -425,15 +439,30 @@ const fetchReservations = async () => {
       reservationDocs.push({ id: doc.id, ...data })
     })
 
-    // 顧客データを一括取得（最適化）
+    // 顧客データを一括取得（キャッシュ対応）
     const customerData = new Map()
     if (customerIds.size > 0) {
-      // customerIdsを30件ずつのチャンクに分割（Firestoreの'in'クエリの制限）
-      const customerIdChunks = []
-      const customerIdArray = Array.from(customerIds)
-      for (let i = 0; i < customerIdArray.length; i += 30) {
-        customerIdChunks.push(customerIdArray.slice(i, i + 30))
+      const useCache = isCacheValid()
+
+      if (useCache) {
+        // キャッシュから顧客データを取得
+        customerIds.forEach(customerId => {
+          if (customerCache.value.has(customerId)) {
+            customerData.set(customerId, customerCache.value.get(customerId))
+          }
+        })
       }
+
+      // キャッシュにない顧客IDを特定
+      const uncachedCustomerIds = useCache
+        ? Array.from(customerIds).filter(id => !customerCache.value.has(id))
+        : Array.from(customerIds)
+
+        // customerIdsを30件ずつのチャンクに分割（Firestoreの'in'クエリの制限）
+        const customerIdChunks = []
+        for (let i = 0; i < uncachedCustomerIds.length; i += 30) {
+          customerIdChunks.push(uncachedCustomerIds.slice(i, i + 30))
+        }
 
       // 各チャンクを並列で処理
       const customerPromises = customerIdChunks.map(async (chunk) => {
@@ -478,22 +507,45 @@ const fetchReservations = async () => {
         }
       })
 
-      const customerChunkResults = await Promise.all(customerPromises)
-      customerChunkResults.flat().forEach((customer) => {
-        customerData.set(customer.id, customer)
-      })
+        const customerChunkResults = await Promise.all(customerPromises)
+        customerChunkResults.flat().forEach((customer) => {
+          customerData.set(customer.id, customer)
+          // キャッシュに保存
+          customerCache.value.set(customer.id, customer)
+        })
+      }
     }
 
-    // メニューデータを一括取得
+    // メニューデータを一括取得（キャッシュ対応）
     const menuData = new Map()
     if (menuNames.size > 0) {
-      const menusRef = collection(db, 'menus')
-      const menuQuery = query(menusRef, where('name', 'in', Array.from(menuNames)))
-      const menuSnapshot = await getDocs(menuQuery)
-      menuSnapshot.forEach((doc) => {
-        const data = doc.data()
-        menuData.set(data.name, data)
-      })
+      const useCache = isCacheValid()
+
+      if (useCache) {
+        // キャッシュからメニューデータを取得
+        menuNames.forEach(menuName => {
+          if (menuCache.value.has(menuName)) {
+            menuData.set(menuName, menuCache.value.get(menuName))
+          }
+        })
+      }
+
+      // キャッシュにないメニューを特定
+      const uncachedMenuNames = useCache
+        ? Array.from(menuNames).filter(name => !menuCache.value.has(name))
+        : Array.from(menuNames)
+
+      if (uncachedMenuNames.length > 0) {
+        const menusRef = collection(db, 'menus')
+        const menuQuery = query(menusRef, where('name', 'in', uncachedMenuNames))
+        const menuSnapshot = await getDocs(menuQuery)
+        menuSnapshot.forEach((doc) => {
+          const data = doc.data()
+          menuData.set(data.name, data)
+          // キャッシュに保存
+          menuCache.value.set(data.name, data)
+        })
+      }
     }
 
         // 施術履歴データを一括取得
@@ -617,6 +669,11 @@ const fetchReservations = async () => {
     })
 
     reservations.value = reservationData
+
+    // キャッシュタイムスタンプを更新
+    if (!cacheTimestamp.value) {
+      cacheTimestamp.value = Date.now()
+    }
   } catch (e) {
     console.error('Error fetching reservations:', e)
   }
