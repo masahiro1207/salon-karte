@@ -13,7 +13,6 @@
             <tr>
               <th class="px-4 py-3 text-left text-sm font-medium text-gray-600">日時</th>
               <th class="px-4 py-3 text-left text-sm font-medium text-gray-600">メニュー</th>
-
               <th class="px-4 py-3 text-left text-sm font-medium text-gray-600">料金</th>
               <th class="px-4 py-3 text-left text-sm font-medium text-gray-600">支払方法</th>
               <th class="px-4 py-3 text-left text-sm font-medium text-gray-600">使用商品</th>
@@ -22,14 +21,14 @@
             </tr>
           </thead>
           <tbody class="divide-y divide-gray-100">
+            <!-- 最新3回分の履歴を表示 -->
             <tr
-              v-for="historyItem in customerHistories"
+              v-for="historyItem in displayedHistories"
               :key="historyItem.id"
               class="hover:bg-gray-50"
             >
               <td class="px-4 py-3">{{ formatDateTime(historyItem.dateTime) }}</td>
               <td class="px-4 py-3">{{ historyItem.menu }}</td>
-
               <td class="px-4 py-3">¥{{ historyItem.price?.toLocaleString() }}</td>
               <td class="px-4 py-3">{{ historyItem.paymentMethod }}</td>
               <td class="px-4 py-3">
@@ -49,6 +48,21 @@
             </tr>
           </tbody>
         </table>
+
+        <!-- 折り畳みボタン -->
+        <div v-if="customerHistories.length > 3" class="px-6 py-4 bg-gray-50 border-t">
+          <button
+            @click="toggleShowAll"
+            class="w-full flex items-center justify-center space-x-2 text-gray-600 hover:text-gray-800 transition-colors"
+          >
+            <span class="material-icons transform transition-transform" :class="{ 'rotate-180': showAll }">
+              expand_more
+            </span>
+            <span>
+              {{ showAll ? '折り畳む' : `さらに${customerHistories.length - 3}件を表示` }}
+            </span>
+          </button>
+        </div>
       </div>
     </div>
 
@@ -151,7 +165,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { db } from '../firebase'
 import {
   collection,
@@ -186,6 +200,7 @@ const history = ref({
 
 const isEditing = ref(false)
 const editingHistoryId = ref(null)
+const showAll = ref(false)
 
 const addProduct = () => {
   history.value.products.push({ name: '', count: 1 })
@@ -197,6 +212,20 @@ const removeProduct = (index) => {
 
 const goBack = () => {
   router.push('/reservations')
+}
+
+// 表示する履歴を制御（最新3回分または全て）
+const displayedHistories = computed(() => {
+  if (showAll.value) {
+    return customerHistories.value
+  } else {
+    return customerHistories.value.slice(0, 3)
+  }
+})
+
+// 折り畳み状態を切り替え
+const toggleShowAll = () => {
+  showAll.value = !showAll.value
 }
 
 const editHistory = (historyItem) => {
