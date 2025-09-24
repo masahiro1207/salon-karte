@@ -156,9 +156,7 @@ import { db } from '../firebase'
 import {
   collection,
   getDocs,
-  getDoc,
   doc,
-  addDoc,
   Timestamp,
   updateDoc,
   query,
@@ -166,6 +164,7 @@ import {
   orderBy,
 } from 'firebase/firestore'
 import { useRouter, useRoute } from 'vue-router'
+import customerService from '../services/customerService'
 
 const router = useRouter()
 const route = useRoute()
@@ -268,17 +267,8 @@ const submitForm = async () => {
 
       alert('施術履歴を更新しました。')
     } else {
-      // 新規履歴を追加
-      formattedHistory.createAt = Timestamp.now()
-      const newHistoryRef = await addDoc(collection(db, 'histories'), formattedHistory)
-
-      // 売上データを作成
-      const saleData = {
-        ...formattedHistory,
-        historyId: newHistoryRef.id,
-        createAt: Timestamp.now(),
-      }
-      await addDoc(collection(db, 'sales'), saleData)
+      // 新規履歴を追加（顧客サービスを使用）
+      await customerService.createHistory(formattedHistory)
 
       // 予約データに施術履歴フラグを更新
       if (history.value.reservationId) {
@@ -287,12 +277,6 @@ const submitForm = async () => {
           hasTreatmentHistory: true,
         })
       }
-
-      // 顧客の最終来店日を更新
-      const customerRef = doc(db, 'customers', history.value.customerId)
-      await updateDoc(customerRef, {
-        lastVisit: Timestamp.fromDate(new Date(history.value.dateTime)),
-      })
 
       alert('施術履歴を登録しました。')
     }
@@ -396,11 +380,13 @@ onMounted(async () => {
       .map((doc) => ({ id: doc.id, ...doc.data() }))
       .sort((a, b) => a.kana.localeCompare(b.kana, 'ja'))
 
-    // 顧客名を取得
-    const customerRef = doc(db, 'customers', customerId)
-    const customerSnap = await getDoc(customerRef)
-    if (customerSnap.exists()) {
-      customerName.value = customerSnap.data().name
+    // 顧客名を取得（顧客サービスを使用）
+    try {
+      const customer = await customerService.getCustomerWithStats(customerId)
+      customerName.value = `${customer.lastName || ''} ${customer.firstName || ''}`.trim()
+    } catch (error) {
+      console.error('Error fetching customer:', error)
+      customerName.value = '不明な顧客'
     }
 
     // 顧客の履歴を取得

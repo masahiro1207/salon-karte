@@ -159,6 +159,7 @@ import { ref, onMounted, watch } from 'vue'
 import { db } from '../firebase'
 import { collection, addDoc, getDocs, Timestamp, doc, updateDoc } from 'firebase/firestore'
 import { useRouter, useRoute } from 'vue-router'
+import customerService from '../services/customerService'
 
 const router = useRouter()
 const route = useRoute()
@@ -235,7 +236,6 @@ const submitForm = async () => {
     const formattedSale = {
       ...sale.value,
       dateTime: Timestamp.fromDate(dateTime),
-      createdAt: Timestamp.now(), // createAtをcreatedAtに修正
       // 数値型のフィールドを確実に数値に変換
       price: Number(sale.value.price) || 0,
       discount: Number(sale.value.discount) || 0,
@@ -244,12 +244,14 @@ const submitForm = async () => {
     }
 
     if (isEditMode.value && saleId) {
+      // 編集モードの場合は直接更新
       const docRef = doc(db, 'sales', saleId)
       await updateDoc(docRef, formattedSale)
       console.log('Document updated with ID: ', saleId)
     } else {
-      const docRef = await addDoc(collection(db, 'sales'), formattedSale)
-      console.log('Document successfully written with ID: ', docRef.id)
+      // 新規作成の場合は顧客サービスを使用（顧客データも自動更新）
+      await customerService.createSale(formattedSale)
+      console.log('Sale created successfully')
     }
     router.push('/sales')
   } catch (e) {
@@ -268,9 +270,14 @@ watch(
 onMounted(async () => {
   try {
     // 顧客とメニューのデータを取得
-    const customerSnapshot = await getDocs(collection(db, 'customers'))
-    customers.value = customerSnapshot.docs
-      .map((doc) => ({ id: doc.id, ...doc.data() }))
+    const customersData = await customerService.getAllCustomers()
+    customers.value = customersData
+      .map((customer) => ({
+        id: customer.id,
+        name: `${customer.lastName || ''} ${customer.firstName || ''}`.trim(),
+        kana: `${customer.lastNameKana || ''} ${customer.firstNameKana || ''}`.trim(),
+        ...customer
+      }))
       .sort((a, b) => a.kana.localeCompare(b.kana, 'ja'))
 
     const menuSnapshot = await getDocs(collection(db, 'menus'))

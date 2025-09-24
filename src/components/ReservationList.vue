@@ -335,8 +335,6 @@ import {
   getDoc,
   doc,
   deleteDoc,
-  orderBy,
-  limit,
 } from 'firebase/firestore'
 import { useRouter, useRoute } from 'vue-router'
 import { format, eachDayOfInterval, addWeeks, subWeeks } from 'date-fns'
@@ -362,6 +360,7 @@ const isPreloading = ref(false)
 
 // ローカルストレージキャッシュ（永続化）
 const STORAGE_KEY = 'salon-reservation-cache'
+// eslint-disable-next-line no-unused-vars
 const loadCacheFromStorage = () => {
   try {
     const stored = localStorage.getItem(STORAGE_KEY)
@@ -902,6 +901,7 @@ const aggressivePreload = async () => {
 }
 
 // 隣の週をプリロード（従来版）
+// eslint-disable-next-line no-unused-vars
 const preloadAdjacentWeeks = async () => {
   if (isPreloading.value) return // 既にプリロード中
 

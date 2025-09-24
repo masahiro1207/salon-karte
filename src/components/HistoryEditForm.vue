@@ -110,11 +110,10 @@ import {
   Timestamp,
   query,
   where,
-  getDocs as firestoreGetDocs,
-  deleteDoc,
   addDoc,
 } from 'firebase/firestore'
 import { useRouter, useRoute } from 'vue-router'
+import customerService from '../services/customerService'
 
 const router = useRouter()
 const route = useRoute()
@@ -285,11 +284,13 @@ onMounted(async () => {
         notes: queryNotes || '',
       }
 
-      // 顧客名を取得
-      const customerRef = doc(db, 'customers', history.value.customerId)
-      const customerSnap = await getDoc(customerRef)
-      if (customerSnap.exists()) {
-        customerName.value = customerSnap.data().name
+      // 顧客名を取得（顧客サービスを使用）
+      try {
+        const customer = await customerService.getCustomerWithStats(history.value.customerId)
+        customerName.value = `${customer.lastName || ''} ${customer.firstName || ''}`.trim()
+      } catch (error) {
+        console.error('Error fetching customer:', error)
+        customerName.value = '不明な顧客'
       }
     }
   } catch (e) {

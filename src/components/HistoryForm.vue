@@ -102,9 +102,10 @@
 <script setup>
 import { ref, onMounted, watch } from 'vue'
 import { db } from '../firebase'
-import { collection, addDoc, getDocs, getDoc, doc, Timestamp, updateDoc } from 'firebase/firestore'
+import { collection, getDocs, getDoc, doc, Timestamp, updateDoc } from 'firebase/firestore'
 import { useRouter, useRoute } from 'vue-router'
 import { format } from 'date-fns'
+import customerService from '../services/customerService'
 
 const router = useRouter()
 const route = useRoute()
@@ -142,30 +143,18 @@ const submitForm = async () => {
     const formattedHistory = {
       ...history.value,
       dateTime: Timestamp.fromDate(new Date(history.value.dateTime)),
-      createAt: Timestamp.now(),
     }
 
-    // 編集時は既存のデータを更新、新規作成時は新しいデータを追加
+    // 編集時は既存のデータを更新、新規作成時は顧客サービスを使用
     if (historyId) {
       const historyRef = doc(db, 'histories', historyId)
       await updateDoc(historyRef, formattedHistory)
+      console.log('History updated with ID: ', historyId)
     } else {
-      const historyRef = await addDoc(collection(db, 'histories'), formattedHistory)
-      console.log('Document written with ID: ', historyRef.id)
+      // 新規作成の場合は顧客サービスを使用（顧客データと売上データも自動更新）
+      await customerService.createHistory(formattedHistory)
+      console.log('History created successfully')
     }
-
-    // 顧客の最終来店日を更新
-    const customerRef = doc(db, 'customers', customerId)
-    await updateDoc(customerRef, {
-      lastVisit: formattedHistory.dateTime,
-    })
-
-    // 売上データも作成
-    const saleData = {
-      ...formattedHistory,
-      createAt: Timestamp.now(),
-    }
-    await addDoc(collection(db, 'sales'), saleData)
 
     router.push(`/history/${customerId}`) // 一覧画面に戻る
   } catch (e) {
@@ -190,13 +179,13 @@ onMounted(async () => {
       .map((doc) => ({ id: doc.id, ...doc.data() }))
       .sort((a, b) => a.kana.localeCompare(b.kana, 'ja'))
 
-    // 顧客名を取得
-    const docRef = doc(db, 'customers', customerId)
-    const docSnap = await getDoc(docRef)
-    if (docSnap.exists()) {
-      customerName.value = docSnap.data().name
-    } else {
-      console.log('No such document!')
+    // 顧客名を取得（顧客サービスを使用）
+    try {
+      const customer = await customerService.getCustomerWithStats(customerId)
+      customerName.value = `${customer.lastName || ''} ${customer.firstName || ''}`.trim()
+    } catch (error) {
+      console.error('Error fetching customer:', error)
+      customerName.value = '不明な顧客'
     }
 
     // 編集時は既存のデータを取得

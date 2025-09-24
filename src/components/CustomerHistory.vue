@@ -106,7 +106,6 @@
             <tr>
               <th class="px-6 py-4 text-left text-sm font-medium text-gray-600">日時</th>
               <th class="px-6 py-4 text-left text-sm font-medium text-gray-600">メニュー</th>
-
               <th class="px-6 py-4 text-right text-sm font-medium text-gray-600">料金</th>
               <th class="px-6 py-4 text-left text-sm font-medium text-gray-600">支払方法</th>
               <th class="px-6 py-4 text-left text-sm font-medium text-gray-600">備考</th>
@@ -114,10 +113,10 @@
             </tr>
           </thead>
           <tbody class="divide-y divide-gray-100">
-            <tr v-for="history in filteredHistories" :key="history.id" class="hover:bg-gray-50">
+            <!-- 最新3回分の履歴を表示 -->
+            <tr v-for="history in displayedHistories" :key="history.id" class="hover:bg-gray-50">
               <td class="px-6 py-4">{{ formatDateTime(history.dateTime) }}</td>
               <td class="px-6 py-4">{{ history.menu }}</td>
-
               <td class="px-6 py-4 text-right">¥{{ history.price.toLocaleString() }}</td>
               <td class="px-6 py-4">{{ history.paymentMethod }}</td>
               <td class="px-6 py-4">{{ history.notes }}</td>
@@ -140,6 +139,21 @@
             </tr>
           </tbody>
         </table>
+      </div>
+
+      <!-- 折り畳みボタン -->
+      <div v-if="filteredHistories.length > 3" class="px-6 py-4 bg-gray-50 border-t">
+        <button
+          @click="toggleShowAll"
+          class="w-full flex items-center justify-center space-x-2 text-gray-600 hover:text-gray-800 transition-colors"
+        >
+          <span class="material-icons transform transition-transform" :class="{ 'rotate-180': showAll }">
+            expand_more
+          </span>
+          <span>
+            {{ showAll ? '折り畳む' : `さらに${filteredHistories.length - 3}件を表示` }}
+          </span>
+        </button>
       </div>
     </div>
   </div>
@@ -177,6 +191,7 @@ const menus = ref([])
 const startDate = ref('')
 const endDate = ref('')
 const selectedMenu = ref('')
+const showAll = ref(false)
 
 const filteredHistories = computed(() => {
   let filtered = histories.value
@@ -199,10 +214,22 @@ const filteredHistories = computed(() => {
     filtered = filtered.filter((history) => history.menu === selectedMenu.value)
   }
 
-
-
-  return filtered
+  return filtered.sort((a, b) => b.dateTime.toDate() - a.dateTime.toDate())
 })
+
+// 表示する履歴を制御（最新3回分または全て）
+const displayedHistories = computed(() => {
+  if (showAll.value) {
+    return filteredHistories.value
+  } else {
+    return filteredHistories.value.slice(0, 3)
+  }
+})
+
+// 折り畳み状態を切り替え
+const toggleShowAll = () => {
+  showAll.value = !showAll.value
+}
 
 const totalSales = computed(() => {
   return filteredHistories.value.reduce((sum, history) => sum + history.price, 0)
@@ -435,7 +462,7 @@ onMounted(async () => {
 }
 
 /* テーブルの最小幅を設定 */
-.min-w-[1000px] {
+.min-w-\[1000px\] {
   min-width: 1000px;
 }
 </style>

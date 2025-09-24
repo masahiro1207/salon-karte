@@ -83,6 +83,7 @@ import { db } from '../firebase'
 import { collection, addDoc, serverTimestamp, getDocs } from 'firebase/firestore'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '../stores/user'
+import customerService from '../services/customerService'
 
 const customer = ref({
   lastName: '',
@@ -107,11 +108,8 @@ onMounted(async () => {
 // 顧客データを取得
 const fetchCustomers = async () => {
   try {
-    const querySnapshot = await getDocs(collection(db, 'customers'))
-    existingCustomers.value = querySnapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    }))
+    const customersData = await customerService.getAllCustomers()
+    existingCustomers.value = customersData
   } catch (e) {
     console.error('Error fetching customers: ', e)
   }
@@ -158,16 +156,19 @@ const submitForm = async () => {
       }
     }
 
-    const docRef = await addDoc(collection(db, 'customers'), {
+    // 顧客サービスを使用して顧客を作成
+    const customerData = {
       lastName: customer.value.lastName,
       firstName: customer.value.firstName,
       lastNameKana: customer.value.lastNameKana,
       firstNameKana: customer.value.firstNameKana,
       phone: customer.value.phone,
       notes: customer.value.notes,
-      createAt: serverTimestamp(),
-    })
-    console.log('Document written with ID: ', docRef.id)
+    }
+
+    const newCustomer = await customerService.createCustomer(customerData)
+    console.log('Customer created with ID: ', newCustomer.id)
+
     // フォームをリセット
     customer.value = {
       lastName: '',
@@ -180,6 +181,7 @@ const submitForm = async () => {
     router.push('/customer')
   } catch (e) {
     console.error('Error adding document: ', e)
+    alert('顧客の登録に失敗しました。')
   }
 }
 

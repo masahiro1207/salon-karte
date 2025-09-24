@@ -114,6 +114,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { db } from '../firebase'
 import { collection, addDoc, serverTimestamp, getDocs, Timestamp } from 'firebase/firestore'
+import customerService from '../services/customerService'
 
 const router = useRouter()
 const route = useRoute()
@@ -138,17 +139,14 @@ const menus = ref([])
 // 顧客データを取得
 const fetchCustomers = async () => {
   try {
-    const querySnapshot = await getDocs(collection(db, 'customers'))
-    customers.value = querySnapshot.docs.map((doc) => {
-      const data = doc.data()
-      return {
-        id: doc.id,
-        name: `${data.lastName || ''} ${data.firstName || ''}`.trim(),
-        kana: `${data.lastNameKana || ''} ${data.firstNameKana || ''}`.trim(),
-        phone: data.phone || '',
-        email: data.email || '',
-      }
-    })
+    const customersData = await customerService.getAllCustomers()
+    customers.value = customersData.map((customer) => ({
+      id: customer.id,
+      name: `${customer.lastName || ''} ${customer.firstName || ''}`.trim(),
+      kana: `${customer.lastNameKana || ''} ${customer.firstNameKana || ''}`.trim(),
+      phone: customer.phone || '',
+      email: customer.email || '',
+    }))
   } catch (e) {
     console.error('Error fetching customers: ', e)
   }
@@ -278,7 +276,7 @@ const submitForm = async () => {
 
     console.log('Local dateTime:', localDateTime)
 
-    // 予約データを作成
+    // 予約データを作成（顧客サービスを使用）
     const reservationData = {
       customerId: reservation.value.customerId,
       customerName: `${selectedCustomer.value.lastName} ${selectedCustomer.value.firstName}`.trim(),
@@ -288,12 +286,12 @@ const submitForm = async () => {
       duration: reservation.value.duration,
       notes: reservation.value.notes,
       menu: reservation.value.menu,
-      createAt: serverTimestamp(),
     }
 
     console.log('Saving reservation:', reservationData)
 
-    await addDoc(collection(db, 'reservations'), reservationData)
+    // 顧客サービスを使用して予約を作成（顧客データも自動更新）
+    await customerService.createReservation(reservationData)
 
     // 予約一覧ページに戻る際に、予約が作成された週の日付を渡す
     const reservationDate = new Date(localDateTime)
@@ -314,6 +312,7 @@ const submitForm = async () => {
     })
   } catch (e) {
     console.error('Error adding reservation: ', e)
+    alert('予約の作成に失敗しました。')
   }
 }
 </script>
