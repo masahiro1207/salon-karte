@@ -252,6 +252,7 @@ import {
 } from 'firebase/firestore'
 import { useRouter } from 'vue-router'
 import { auth } from '../firebase'
+import { safeToDate, safeFormatDate } from '../utils/timestampUtils'
 
 const router = useRouter()
 
@@ -274,21 +275,7 @@ const columns = [
 ]
 
 const formatDate = (dateTime) => {
-  if (!dateTime) return ''
-
-  let date
-  if (typeof dateTime === 'string') {
-    date = new Date(dateTime)
-  } else if (typeof dateTime.toDate === 'function') {
-    date = dateTime.toDate()
-  } else {
-    date = new Date(dateTime)
-  }
-
-  const year = date.getFullYear()
-  const month = (date.getMonth() + 1).toString().padStart(2, '0')
-  const day = date.getDate().toString().padStart(2, '0')
-  return `${year}-${month}-${day}`
+  return safeFormatDate(dateTime, 'YYYY-MM-DD')
 }
 
 const sortBy = (key) => {
@@ -537,8 +524,19 @@ onMounted(async () => {
       const data = doc.data()
       if (data.customerId && data.dateTime) {
         // 最新の施術履歴の日時を保存（customerIdをキーとして使用）
-        const currentDateTime = data.dateTime.toDate()
-        const existingDateTime = historiesMap.get(data.customerId)?.toDate()
+        let currentDateTime
+        let existingDateTime
+
+        // dateTimeの型を安全に処理
+        currentDateTime = safeToDate(data.dateTime)
+        if (!currentDateTime) {
+          return // dateTimeが無効な場合はスキップ
+        }
+
+        const existingHistoryDateTime = historiesMap.get(data.customerId)
+        if (existingHistoryDateTime) {
+          existingDateTime = safeToDate(existingHistoryDateTime)
+        }
 
         if (!existingDateTime || currentDateTime > existingDateTime) {
           historiesMap.set(data.customerId, data.dateTime)

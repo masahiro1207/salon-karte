@@ -178,6 +178,10 @@ const goBack = () => {
 
 const submitForm = async () => {
   try {
+    // 履歴データを更新する前に元のデータを取得
+    const originalHistoryDoc = await getDoc(doc(db, 'histories', historyId))
+    const originalData = originalHistoryDoc.data()
+
     // 履歴データを更新
     const historyRef = doc(db, 'histories', historyId)
     await updateDoc(historyRef, {
@@ -192,19 +196,46 @@ const submitForm = async () => {
       updateAt: new Date(),
     })
 
-    // 売上データを検索
-    const salesQuery = query(
+    // 売上データを検索（複数の方法で検索）
+    let salesQuery
+    let salesSnapshot
+
+    // 1. historyIdで検索を試行
+    salesQuery = query(
       collection(db, 'sales'),
-      where('customerId', '==', history.value.customerId),
-      where('dateTime', '==', Timestamp.fromDate(new Date(history.value.dateTime))),
+      where('historyId', '==', historyId)
     )
-    const salesSnapshot = await getDocs(salesQuery)
+    salesSnapshot = await getDocs(salesQuery)
+
+    // 2. historyIdで見つからない場合は、元の日時と顧客IDで検索
+    if (salesSnapshot.empty) {
+      salesQuery = query(
+        collection(db, 'sales'),
+        where('customerId', '==', history.value.customerId),
+        where('dateTime', '==', originalData.dateTime),
+      )
+      salesSnapshot = await getDocs(salesQuery)
+      console.log('履歴編集: 元の日時で売上データを検索しました', salesSnapshot.size, '件見つかりました')
+    }
+
+    console.log('履歴編集: 売上データ検索結果', salesSnapshot.size, '件')
+
+    // 顧客名を取得
+    const customerDoc = await getDoc(doc(db, 'customers', history.value.customerId))
+    let customerName = '不明'
+    if (customerDoc.exists()) {
+      const customerData = customerDoc.data()
+      customerName = `${customerData.lastName || ''} ${customerData.firstName || ''}`.trim()
+    }
 
     if (!salesSnapshot.empty) {
       // 既存の売上データを更新
       const saleRef = doc(db, 'sales', salesSnapshot.docs[0].id)
+      console.log('履歴編集: 売上データを更新します', saleRef.id)
       await updateDoc(saleRef, {
         customerId: history.value.customerId,
+        customerName: customerName,
+        historyId: historyId, // 履歴IDを追加
         dateTime: Timestamp.fromDate(new Date(history.value.dateTime)),
         menu: history.value.menu,
         staff: history.value.staff,
@@ -216,8 +247,11 @@ const submitForm = async () => {
       })
     } else {
       // 新しい売上データを作成
+      console.log('履歴編集: 新しい売上データを作成します')
       await addDoc(collection(db, 'sales'), {
         customerId: history.value.customerId,
+        customerName: customerName,
+        historyId: historyId, // 履歴IDを追加
         dateTime: Timestamp.fromDate(new Date(history.value.dateTime)),
         menu: history.value.menu,
         staff: history.value.staff,

@@ -102,7 +102,7 @@
 <script setup>
 import { ref, onMounted, watch } from 'vue'
 import { db } from '../firebase'
-import { collection, getDocs, getDoc, doc, Timestamp, updateDoc } from 'firebase/firestore'
+import { collection, getDocs, getDoc, doc, Timestamp, updateDoc, query, where, addDoc } from 'firebase/firestore'
 import { useRouter, useRoute } from 'vue-router'
 import { format } from 'date-fns'
 import customerService from '../services/customerService'
@@ -147,9 +147,60 @@ const submitForm = async () => {
 
     // 編集時は既存のデータを更新、新規作成時は顧客サービスを使用
     if (historyId) {
+      // 履歴データを更新
       const historyRef = doc(db, 'histories', historyId)
       await updateDoc(historyRef, formattedHistory)
-      console.log('History updated with ID: ', historyId)
+
+      // 対応する売上データを検索して更新
+      const salesQuery = query(
+        collection(db, 'sales'),
+        where('customerId', '==', history.value.customerId),
+        where('dateTime', '==', formattedHistory.dateTime)
+      )
+      const salesSnapshot = await getDocs(salesQuery)
+
+      // 顧客名を取得
+      const customerDoc = await getDoc(doc(db, 'customers', history.value.customerId))
+      let customerName = '不明'
+      if (customerDoc.exists()) {
+        const customerData = customerDoc.data()
+        customerName = `${customerData.lastName || ''} ${customerData.firstName || ''}`.trim()
+      }
+
+      if (!salesSnapshot.empty) {
+        // 既存の売上データを更新
+        const saleRef = doc(db, 'sales', salesSnapshot.docs[0].id)
+        await updateDoc(saleRef, {
+          customerId: history.value.customerId,
+          customerName: customerName,
+          historyId: historyId,
+          dateTime: formattedHistory.dateTime,
+          menu: history.value.menu,
+          staff: history.value.staff,
+          price: Number(history.value.price),
+          paymentMethod: history.value.paymentMethod,
+          products: history.value.products,
+          notes: history.value.notes,
+          updateAt: new Date(),
+        })
+      } else {
+        // 新しい売上データを作成
+        await addDoc(collection(db, 'sales'), {
+          customerId: history.value.customerId,
+          customerName: customerName,
+          historyId: historyId,
+          dateTime: formattedHistory.dateTime,
+          menu: history.value.menu,
+          staff: history.value.staff,
+          price: Number(history.value.price),
+          paymentMethod: history.value.paymentMethod,
+          products: history.value.products,
+          notes: history.value.notes,
+          createAt: new Date(),
+        })
+      }
+
+      console.log('History and sales updated with ID: ', historyId)
     } else {
       // 新規作成の場合は顧客サービスを使用（顧客データと売上データも自動更新）
       await customerService.createHistory(formattedHistory)

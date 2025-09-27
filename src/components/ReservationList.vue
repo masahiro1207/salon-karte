@@ -131,6 +131,8 @@
               v-for="time in timeSlots"
               :key="time"
               class="border-b border-gray-200 p-2 relative group"
+              :data-date="date"
+              :data-time="time"
               @click="handleTimeSlotClick(date, time)"
               :style="{
                 minWidth: '30px',
@@ -143,11 +145,12 @@
                 <div
                   v-for="reservation in getReservation(date, time)"
                   :key="reservation.id"
-                  class="absolute rounded-sm p-2 transition duration-200 cursor-pointer reservation-item"
+                  class="absolute rounded-sm transition duration-200 reservation-item relative"
                   :class="[
                     reservation.hasTreatmentHistory
                       ? 'bg-green-100 hover:bg-green-200'
                       : 'bg-color3 bg-opacity-20 hover:bg-opacity-30',
+                    isDragging && draggedReservation?.id === reservation.id ? 'dragging' : '',
                   ]"
                   :style="{
                     position: 'absolute',
@@ -157,11 +160,16 @@
                     height: '3.2rem',
                     marginBottom: '0.4rem',
                     borderLeft: `3px solid ${reservation.hasTreatmentHistory ? '#10B981' : '#6366F1'}`,
-                    zIndex: 1,
+                    zIndex: isDragging && draggedReservation?.id === reservation.id ? 10 : 1,
                   }"
-                  @click="handleReservationClick(reservation)"
+                  draggable="false"
+                  @dragstart.prevent
                 >
-                  <div class="flex items-center space-x-1 h-full">
+                  <!-- シンプルな予約バー -->
+                  <div
+                    class="flex items-center space-x-1 h-full px-2 cursor-pointer w-full"
+                    @mousedown="handleMouseDown($event, reservation)"
+                  >
                     <span
                       v-if="reservation.hasTreatmentHistory"
                       class="material-icons text-green-600 flex-shrink-0"
@@ -335,6 +343,7 @@ import {
   getDoc,
   doc,
   deleteDoc,
+  updateDoc,
 } from 'firebase/firestore'
 import { useRouter, useRoute } from 'vue-router'
 import { format, eachDayOfInterval, addWeeks, subWeeks } from 'date-fns'
@@ -360,6 +369,10 @@ const isPreloading = ref(false)
 
 // ローカルストレージキャッシュ（永続化）
 const STORAGE_KEY = 'salon-reservation-cache'
+
+// 新しいシンプルな状態管理
+const draggedReservation = ref(null)
+const isDragging = ref(false)
 // eslint-disable-next-line no-unused-vars
 const loadCacheFromStorage = () => {
   try {
@@ -449,7 +462,7 @@ window.refreshReservations = forceRefresh
 // 時間スロットの生成（9:00 から 20:00 まで30分間隔）
 const timeSlots = computed(() => {
   const slots = []
-  for (let hour = 10; hour <= 20; hour++) {
+  for (let hour = 9; hour <= 20; hour++) {
     slots.push(`${hour}:00`)
     if (hour < 20) {
       slots.push(`${hour}:30`)
@@ -1617,8 +1630,17 @@ const confirmDeleteReservation = async (reservation) => {
   }
 }
 
-const handleReservationClick = (reservation) => {
+const handleReservationClick = (reservation, event) => {
+  console.log('予約クリック:', reservation.customerName, 'ドラッグ中:', isDragging.value)
+
+  // ドラッグ中はクリックイベントを無視
+  if (isDragging.value) {
+    console.log('ドラッグ中のためクリックを無視')
+    return
+  }
+
   selectedReservation.value = reservation
+  console.log('予約メニューを表示:', reservation.customerName)
 }
 
 // 日付クリック時の処理
@@ -1631,6 +1653,116 @@ const viewCustomerHistory = (customerId) => {
   router.push(`/history/${customerId}`)
   selectedDate.value = null
 }
+
+// 新しいシンプルなドラッグ&ドロップ機能
+const handleMouseDown = (event, reservation) => {
+  console.log('マウスダウン:', reservation.customerName)
+
+  const startX = event.clientX
+  const startY = event.clientY
+
+  const handleMouseMove = (moveEvent) => {
+    const distance = Math.sqrt(
+      Math.pow(moveEvent.clientX - startX, 2) +
+      Math.pow(moveEvent.clientY - startY, 2)
+    )
+
+    if (distance > 10) { // 10ピクセル以上移動したらドラッグ開始
+      console.log('ドラッグ開始:', reservation.customerName)
+      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleMouseUp)
+      startDragOperation(reservation, moveEvent)
+    }
+  }
+
+  const handleMouseUp = (upEvent) => {
+    console.log('クリック処理:', reservation.customerName)
+    document.removeEventListener('mousemove', handleMouseMove)
+    document.removeEventListener('mouseup', handleMouseUp)
+    // クリックとして処理（即座に実行）
+    handleReservationClick(reservation, upEvent)
+  }
+
+  document.addEventListener('mousemove', handleMouseMove)
+  document.addEventListener('mouseup', handleMouseUp)
+}
+
+const startDragOperation = (reservation, event) => {
+  console.log('ドラッグ操作開始:', reservation.customerName)
+
+  const handleDragMove = (moveEvent) => {
+    // ドラッグ中の視覚的フィードバック
+  }
+
+  const handleDragEnd = async (endEvent) => {
+    console.log('ドラッグ終了:', reservation.customerName)
+
+    // ドロップ先を特定
+    const elementUnderMouse = document.elementFromPoint(endEvent.clientX, endEvent.clientY)
+    const targetCell = elementUnderMouse?.closest('td[data-date][data-time]')
+
+    if (targetCell) {
+      const dateAttr = targetCell.getAttribute('data-date')
+      const timeAttr = targetCell.getAttribute('data-time')
+
+      if (dateAttr && timeAttr) {
+        console.log('ドロップ先:', dateAttr, timeAttr)
+        await moveReservation(reservation, dateAttr, timeAttr)
+      }
+    }
+
+    document.removeEventListener('mousemove', handleDragMove)
+    document.removeEventListener('mouseup', handleDragEnd)
+  }
+
+  document.addEventListener('mousemove', handleDragMove)
+  document.addEventListener('mouseup', handleDragEnd)
+}
+
+// 予約の移動
+const moveReservation = async (reservation, newDate, newTime) => {
+  try {
+    console.log('予約移動開始:', {
+      customer: reservation.customerName,
+      oldDateTime: reservation.dateTime.toDate(),
+      newDate,
+      newTime
+    })
+
+    const [hours, minutes] = newTime.split(':').map(Number)
+    const newDateTime = new Date(newDate)
+    newDateTime.setHours(hours, minutes, 0, 0)
+
+    const docRef = doc(db, 'reservations', reservation.id)
+    await updateDoc(docRef, {
+      dateTime: Timestamp.fromDate(newDateTime),
+      updatedAt: new Date()
+    })
+
+    // 予約一覧を強制更新（直接データベースから再取得）
+    await forceRefresh()
+
+    // アニメーション効果を追加
+    setTimeout(() => {
+      const updatedReservation = reservations.value.find(r => r.id === reservation.id)
+      if (updatedReservation) {
+        updatedReservation._animationClass = 'reservation-moving'
+        setTimeout(() => {
+          if (updatedReservation) {
+            updatedReservation._animationClass = ''
+          }
+        }, 500)
+      }
+    }, 100)
+
+    console.log('予約を移動しました:', reservation.customerName, '→', newDate, newTime)
+  } catch (error) {
+    console.error('予約の移動エラー:', error)
+    alert('予約の移動中にエラーが発生しました。')
+  }
+}
+
+// リサイズ機能は削除済み
 
 // 履歴日時のフォーマット
 const formatHistoryDateTime = (dateTime) => {
@@ -1691,7 +1823,75 @@ onMounted(() => {
 
 .reservation-item {
   transform: translateZ(0);
-  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  user-select: none;
+  transform-origin: center;
+}
+
+.reservation-item:hover {
+  transform: translateZ(0) translateY(-2px) scale(1.02);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+}
+
+.reservation-item.dragging {
+  opacity: 0.8;
+  transform: translateZ(0) rotate(3deg) scale(1.05) translateY(-4px);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
+  z-index: 1000;
+  transition: none !important;
+}
+
+.reservation-item.resizing {
+  transform: translateZ(0) scale(1.02);
+  box-shadow: 0 8px 24px rgba(59, 130, 246, 0.4);
+  z-index: 999;
+}
+
+/* リサイズハンドルのスタイル */
+.reservation-item .cursor-ew-resize {
+  transition: all 0.2s ease-in-out;
+}
+
+.reservation-item:hover .cursor-ew-resize {
+  opacity: 0.8;
+  transform: scaleY(1.1);
+}
+
+.reservation-item .cursor-ew-resize:hover {
+  opacity: 1;
+  background-color: #3B82F6 !important;
+  transform: scaleY(1.2);
+}
+
+/* ドラッグ可能エリアのスタイル */
+.cursor-move {
+  cursor: move !important;
+  transition: all 0.2s ease-in-out;
+}
+
+.cursor-move:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+}
+
+/* 予約移動時のアニメーション */
+.reservation-moving {
+  animation: moveReservation 0.5s ease-in-out;
+}
+
+@keyframes moveReservation {
+  0% {
+    transform: scale(1.05);
+    opacity: 0.8;
+  }
+  50% {
+    transform: scale(1.1);
+    opacity: 0.6;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
 }
 
 .week-transition {

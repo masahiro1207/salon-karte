@@ -211,10 +211,21 @@ class CustomerService {
 
       const batch = writeBatch(db)
 
+      // 顧客名を取得
+      let customerName = saleData.customerName || ''
+      if (saleData.customerId && !customerName) {
+        const customerDoc = await getDoc(doc(this.customersCollection, saleData.customerId))
+        if (customerDoc.exists()) {
+          const customerData = customerDoc.data()
+          customerName = `${customerData.lastName || ''} ${customerData.firstName || ''}`.trim()
+        }
+      }
+
       // 売上データを作成
       const saleRef = doc(this.salesCollection)
       const saleDoc = {
         ...saleData,
+        customerName: customerName,
         id: saleRef.id,
         createAt: serverTimestamp()
       }
@@ -257,10 +268,21 @@ class CustomerService {
 
       const batch = writeBatch(db)
 
+      // 顧客名を取得
+      let customerName = historyData.customerName || ''
+      if (historyData.customerId && !customerName) {
+        const customerDoc = await getDoc(doc(this.customersCollection, historyData.customerId))
+        if (customerDoc.exists()) {
+          const customerData = customerDoc.data()
+          customerName = `${customerData.lastName || ''} ${customerData.firstName || ''}`.trim()
+        }
+      }
+
       // 履歴データを作成
       const historyRef = doc(this.historiesCollection)
       const historyDoc = {
         ...historyData,
+        customerName: customerName,
         id: historyRef.id,
         createAt: serverTimestamp()
       }
@@ -270,6 +292,8 @@ class CustomerService {
       const saleRef = doc(this.salesCollection)
       const saleDoc = {
         ...historyData,
+        customerName: customerName,
+        historyId: historyRef.id, // 履歴IDを追加
         id: saleRef.id,
         createAt: serverTimestamp()
       }

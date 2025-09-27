@@ -174,9 +174,14 @@ const goBack = () => {
 
 const submitForm = async () => {
   try {
+    // 選択された顧客の名前を取得
+    const selectedCustomer = customers.value.find(c => c.id === sale.value.customerId)
+    const customerName = selectedCustomer ? selectedCustomer.name : '不明'
+
     const docRef = doc(db, 'sales', saleId)
     const formattedSale = {
       ...sale.value,
+      customerName: customerName,
       dateTime: Timestamp.fromDate(new Date(sale.value.dateTime)),
     }
     await updateDoc(docRef, formattedSale)

@@ -576,7 +576,8 @@ onMounted(async () => {
           ...data,
           // 予約時間の参照を削除し、売上登録時の日時を使用
           dateTime: data.dateTime,
-          customerName: customerMap[data.customerId] || '不明',
+          // customerNameが既に設定されている場合はそれを使用、なければcustomerMapから取得
+          customerName: data.customerName || customerMap[data.customerId] || '不明',
         }
         // 空のデータは追加しない
         if (sale.menu || sale.staff || sale.price) {
