@@ -459,14 +459,30 @@ const forceRefresh = async () => {
 window.clearSalonCache = clearCache
 window.refreshReservations = forceRefresh
 
+// デバッグ用関数を公開（開発環境のみ）
+if (import.meta.env.DEV) {
+  window.debugReservations = () => {
+    console.log('=== 予約デバッグ情報 ===')
+    console.log('時間スロット:', timeSlots.value)
+    console.log('予約データ:', reservations.value)
+    console.log('予約マップ:', reservationMap.value)
+    console.log('現在の週:', weekDates.value)
+  }
+}
+
 // 時間スロットの生成（9:00 から 20:00 まで30分間隔）
 const timeSlots = computed(() => {
   const slots = []
   for (let hour = 9; hour <= 20; hour++) {
-    slots.push(`${hour}:00`)
+    // 時間フォーマットを統一（09:00形式）
+    slots.push(`${hour.toString().padStart(2, '0')}:00`)
     if (hour < 20) {
-      slots.push(`${hour}:30`)
+      slots.push(`${hour.toString().padStart(2, '0')}:30`)
     }
+  }
+  // デバッグログ（本番環境では無効化）
+  if (import.meta.env.DEV) {
+    console.log('時間スロット:', slots)
   }
   return slots
 })
@@ -1405,6 +1421,16 @@ const reservationMap = computed(() => {
     const dateKey = format(startTime, 'yyyy-MM-dd')
     const timeKey = format(startTime, 'HH:mm')
 
+    // デバッグログ（本番環境では無効化）
+    if (import.meta.env.DEV) {
+      console.log('予約マップ作成:', {
+        customer: reservation.customerName,
+        dateKey,
+        timeKey,
+        originalDateTime: startTime
+      })
+    }
+
     if (!map.has(dateKey)) {
       map.set(dateKey, new Map())
     }
@@ -1414,6 +1440,10 @@ const reservationMap = computed(() => {
     map.get(dateKey).get(timeKey).push(reservation)
   })
 
+  // デバッグログ（本番環境では無効化）
+  if (import.meta.env.DEV) {
+    console.log('予約マップ全体:', map)
+  }
   return map
 })
 
@@ -1421,16 +1451,21 @@ const reservationMap = computed(() => {
 const getReservation = (date, time) => {
   const dateKey = format(date, 'yyyy-MM-dd')
   const timeKey = time
-  const [hours, minutes] = timeKey.split(':').map(Number)
-  const targetTime = new Date(date)
-  targetTime.setHours(hours, minutes, 0, 0)
+
+  // デバッグログ（本番環境では無効化）
+  if (import.meta.env.DEV) {
+    console.log('getReservation:', { dateKey, timeKey })
+  }
 
   // その時間枠に開始する予約のみを返す
   const reservations = reservationMap.value.get(dateKey)?.get(timeKey) || []
-  return reservations.filter((reservation) => {
-    const startTime = reservation.dateTime.toDate()
-    return format(startTime, 'HH:mm') === timeKey
-  })
+
+  // デバッグログ（本番環境では無効化）
+  if (import.meta.env.DEV) {
+    console.log('予約データ:', reservations.length, '件')
+  }
+
+  return reservations
 }
 
 // 予約の重なりを検出してレーン数を計算

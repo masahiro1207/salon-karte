@@ -13,7 +13,7 @@ import AddReservation from '../components/AddReservation.vue'
 import CustomerHistory from '../components/CustomerHistory.vue'
 import Login from '../components/Login.vue'
 
-import AddCustomerView from '../views/AddCustomerView.vue'
+import CustomerForm from '../components/CustomerForm.vue'
 import AddHistory from '../components/AddHistory.vue'
 
 const router = createRouter({
@@ -41,7 +41,7 @@ const router = createRouter({
     {
       path: '/addcustomer',
       name: 'addcustomer',
-      component: AddCustomerView
+      component: CustomerForm
     },
     {
       path: '/editcustomer/:id',
