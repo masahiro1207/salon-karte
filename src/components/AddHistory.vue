@@ -145,7 +145,8 @@
         <textarea
           id="notes"
           v-model="history.notes"
-          class="border border-gray-300 rounded-md px-3 py-2 w-full text-charcoal-black"
+          rows="10"
+          class="border border-gray-300 rounded-md px-3 py-2 w-full text-charcoal-black min-h-[240px] resize-y"
         ></textarea>
       </div>
       <div class="flex justify-end mt-4 space-x-2">
