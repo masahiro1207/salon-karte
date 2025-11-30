@@ -525,6 +525,14 @@ const formatTime = (time) => {
   return time
 }
 
+// 時間を30分刻みに丸める関数（15分や45分などを下に丸めて表示スロットに合わせる）
+const roundToNearest30Minutes = (timeString) => {
+  const [hours, minutes] = timeString.split(':').map(Number)
+  // 0-29分は00分、30-59分は30分に下に丸める
+  const roundedMinutes = Math.floor(minutes / 30) * 30
+  return `${hours.toString().padStart(2, '0')}:${roundedMinutes.toString().padStart(2, '0')}`
+}
+
 // 瞬時週移動（爆速システム）
 const previousWeek = () => {
   const newWeekStart = subWeeks(currentWeekStart.value, 1)
@@ -1419,13 +1427,16 @@ const reservationMap = computed(() => {
     const startTime = reservation.dateTime.toDate()
     // 日付をローカルタイムゾーンで取得
     const dateKey = format(startTime, 'yyyy-MM-dd')
-    const timeKey = format(startTime, 'HH:mm')
+    const originalTimeKey = format(startTime, 'HH:mm')
+    // 時間を30分刻みに丸める（15分や45分などの予約も表示されるように）
+    const timeKey = roundToNearest30Minutes(originalTimeKey)
 
     // デバッグログ（本番環境では無効化）
     if (import.meta.env.DEV) {
       console.log('予約マップ作成:', {
         customer: reservation.customerName,
         dateKey,
+        originalTimeKey,
         timeKey,
         originalDateTime: startTime
       })
