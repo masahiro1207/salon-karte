@@ -139,10 +139,28 @@ const submitForm = async () => {
       alert('日時を入力してください。')
       return
     }
+    if (!history.value.menu?.trim()) {
+      alert('メニューを選択してください。')
+      return
+    }
+
+    const isPriceMissing =
+      history.value.price === '' || history.value.price === null || history.value.price === undefined
+    if (isPriceMissing) {
+      alert('料金を入力してください。')
+      return
+    }
+
+    const priceNumber = Number(history.value.price)
+    if (Number.isNaN(priceNumber) || priceNumber < 0) {
+      alert('料金は0以上の数値で入力してください。')
+      return
+    }
 
     const formattedHistory = {
       ...history.value,
       dateTime: Timestamp.fromDate(new Date(history.value.dateTime)),
+      price: priceNumber,
     }
 
     // 編集時は既存のデータを更新、新規作成時は顧客サービスを使用
@@ -177,7 +195,7 @@ const submitForm = async () => {
           dateTime: formattedHistory.dateTime,
           menu: history.value.menu,
           staff: history.value.staff,
-          price: Number(history.value.price),
+          price: priceNumber,
           paymentMethod: history.value.paymentMethod,
           products: history.value.products,
           notes: history.value.notes,
@@ -192,7 +210,7 @@ const submitForm = async () => {
           dateTime: formattedHistory.dateTime,
           menu: history.value.menu,
           staff: history.value.staff,
-          price: Number(history.value.price),
+          price: priceNumber,
           paymentMethod: history.value.paymentMethod,
           products: history.value.products,
           notes: history.value.notes,

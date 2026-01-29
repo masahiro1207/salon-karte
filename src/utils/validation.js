@@ -173,11 +173,18 @@ export const validateHistory = (historyData) => {
     errors.push('メニューを選択してください')
   }
 
-  // 価格の妥当性チェック
-  if (historyData.price !== null && historyData.price !== undefined) {
+  // 価格の必須 & 妥当性チェック（0はOK）
+  const isPriceMissing =
+    historyData.price === null || historyData.price === undefined || historyData.price === ''
+  if (isPriceMissing) {
+    errors.push('料金を入力してください')
+  } else {
     const price = Number(historyData.price)
     if (isNaN(price) || price < 0) {
       errors.push('価格は0以上の数値で入力してください')
+    }
+    if (price > 1000000) {
+      errors.push('価格は1,000,000円以下で入力してください')
     }
   }
 

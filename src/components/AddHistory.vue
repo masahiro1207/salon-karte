@@ -261,7 +261,10 @@ const editHistory = (historyItem) => {
 
 const submitForm = async () => {
   try {
-    if (!history.value.dateTime || !history.value.menu || !history.value.price) {
+    const isPriceMissing =
+      history.value.price === '' || history.value.price === null || history.value.price === undefined
+
+    if (!history.value.dateTime || !history.value.menu || isPriceMissing) {
       alert('必須項目が入力されていません。')
       return
     }

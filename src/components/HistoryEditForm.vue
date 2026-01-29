@@ -178,6 +178,28 @@ const goBack = () => {
 
 const submitForm = async () => {
   try {
+    if (!history.value.dateTime) {
+      alert('日時を入力してください。')
+      return
+    }
+    if (!history.value.menu?.trim()) {
+      alert('メニューを選択してください。')
+      return
+    }
+
+    const isPriceMissing =
+      history.value.price === '' || history.value.price === null || history.value.price === undefined
+    if (isPriceMissing) {
+      alert('料金を入力してください。')
+      return
+    }
+
+    const priceNumber = Number(history.value.price)
+    if (Number.isNaN(priceNumber) || priceNumber < 0) {
+      alert('料金は0以上の数値で入力してください。')
+      return
+    }
+
     // 履歴データを更新する前に元のデータを取得
     const originalHistoryDoc = await getDoc(doc(db, 'histories', historyId))
     const originalData = originalHistoryDoc.data()
@@ -189,7 +211,7 @@ const submitForm = async () => {
       dateTime: Timestamp.fromDate(new Date(history.value.dateTime)),
       menu: history.value.menu,
       staff: history.value.staff,
-      price: Number(history.value.price),
+      price: priceNumber,
       paymentMethod: history.value.paymentMethod,
       products: history.value.products,
       notes: history.value.notes,
@@ -239,7 +261,7 @@ const submitForm = async () => {
         dateTime: Timestamp.fromDate(new Date(history.value.dateTime)),
         menu: history.value.menu,
         staff: history.value.staff,
-        price: Number(history.value.price),
+        price: priceNumber,
         paymentMethod: history.value.paymentMethod,
         products: history.value.products,
         notes: history.value.notes,
@@ -255,7 +277,7 @@ const submitForm = async () => {
         dateTime: Timestamp.fromDate(new Date(history.value.dateTime)),
         menu: history.value.menu,
         staff: history.value.staff,
-        price: Number(history.value.price),
+        price: priceNumber,
         paymentMethod: history.value.paymentMethod,
         products: history.value.products,
         notes: history.value.notes,
