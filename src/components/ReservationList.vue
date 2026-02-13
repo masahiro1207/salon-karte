@@ -1640,9 +1640,13 @@ const editReservation = (id) => {
   router.push(`/editreservation/${id}`)
 }
 
-// 施術履歴追加
+// 施術履歴追加（開いている週を渡して、戻る時に同じ週に戻れるようにする）
 const addTreatmentHistory = (reservation) => {
-  router.push(`/history/${reservation.customerId}`)
+  const weekStartISO = format(currentWeekStart.value, 'yyyy-MM-dd')
+  router.push({
+    path: `/history/${reservation.customerId}`,
+    query: { weekStart: weekStartISO },
+  })
   selectedReservation.value = null
 }
 
@@ -1694,9 +1698,13 @@ const handleDateClick = (date) => {
   selectedDate.value = date
 }
 
-// 顧客履歴詳細を表示
+// 顧客履歴詳細を表示（開いている週を渡して、戻る時に同じ週に戻れるようにする）
 const viewCustomerHistory = (customerId) => {
-  router.push(`/history/${customerId}`)
+  const weekStartISO = format(currentWeekStart.value, 'yyyy-MM-dd')
+  router.push({
+    path: `/history/${customerId}`,
+    query: { weekStart: weekStartISO },
+  })
   selectedDate.value = null
 }
 

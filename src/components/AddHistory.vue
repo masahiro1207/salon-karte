@@ -211,8 +211,14 @@ const removeProduct = (index) => {
   history.value.products.splice(index, 1)
 }
 
+// 戻る: 開いていた予約一覧の週に戻る（weekStart をクエリで受け取っている場合）
 const goBack = () => {
-  router.push('/reservations')
+  const weekStart = route.query.weekStart
+  if (weekStart) {
+    router.push({ path: '/reservations', query: { weekStart } })
+  } else {
+    router.push('/reservations')
+  }
 }
 
 // 表示する履歴を制御（最新3回分または全て）

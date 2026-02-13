@@ -280,7 +280,11 @@ const formatDateTime = (dateTime) => {
 }
 
 const addHistory = () => {
-  router.push(`/addhistory/${customerId}`)
+  const weekStart = route.query.weekStart
+  router.push({
+    path: `/addhistory/${customerId}`,
+    query: weekStart ? { weekStart } : {},
+  })
 }
 
 const editHistory = (id) => {

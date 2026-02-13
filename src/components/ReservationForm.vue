@@ -17,7 +17,8 @@
           type="text"
           id="customerSearch"
           v-model="searchKeyword"
-          placeholder="顧客名で検索"
+          @input="onCustomerSearchInput"
+          placeholder="顧客名で検索（平仮名入力は自動でカタカナに変換）"
           class="border border-gray-300 rounded-md px-3 py-2 w-full text-charcoal-black"
         />
       </div>
@@ -139,6 +140,20 @@ const reservation = ref({
   notes: '',
 })
 
+// 平仮名をカタカナに変換（Unicode: ぁ=0x3041 → ァ=0x30A1, 差は0x60）
+const hiraganaToKatakana = (str) => {
+  if (!str) return ''
+  return str.replace(/[\u3041-\u3096]/g, (match) =>
+    String.fromCharCode(match.charCodeAt(0) + 0x60)
+  )
+}
+
+// 顧客検索入力時に平仮名をカタカナに変換して表示・検索に使用
+const onCustomerSearchInput = (e) => {
+  const converted = hiraganaToKatakana(e.target.value)
+  searchKeyword.value = converted
+}
+
 const goBack = () => {
   router.push('/')
 }
@@ -170,12 +185,15 @@ const submitForm = async () => {
   }
 }
 const filteredCustomers = computed(() => {
-  const keyword = searchKeyword.value.toLowerCase()
+  // 平仮名はカタカナに変換して検索（貼り付け時なども対応）
+  const raw = searchKeyword.value.trim()
+  const keywordKatakana = hiraganaToKatakana(raw)
+  const keywordLower = keywordKatakana.toLowerCase()
   return customers.value.filter(
     (customer) =>
-      customer.name.toLowerCase().includes(keyword) ||
-      (customer.kana && customer.kana.toLowerCase().includes(keyword)) ||
-      (customer.phone && customer.phone.toLowerCase().includes(keyword)),
+      customer.name.toLowerCase().includes(keywordLower) ||
+      (customer.kana && customer.kana.includes(keywordKatakana)) ||
+      (customer.phone && customer.phone.toLowerCase().includes(keywordLower)),
   )
 })
 
