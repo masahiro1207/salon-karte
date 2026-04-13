@@ -224,13 +224,13 @@
             </button>
 
             <button
-              @click="addTreatmentHistory(selectedReservation)"
+              @click="goCustomerAccounting(selectedReservation)"
               class="flex flex-col items-center justify-center p-4 sm:p-6 bg-gray-50 rounded-lg hover:bg-gray-100 transition duration-200"
             >
               <span class="material-icons text-2xl sm:text-3xl text-color3 mb-2"
-                >content_paste</span
+                >person</span
               >
-              <span class="text-sm sm:text-base text-gray-700">施術履歴</span>
+              <span class="text-sm sm:text-base text-gray-700">会計・顧客</span>
             </button>
 
             <button
@@ -296,7 +296,7 @@
                   <span
                     v-if="reservation.hasTreatmentHistory"
                     class="material-icons text-green-600"
-                    title="施術履歴あり"
+                    title="会計またはアーカイブ履歴あり"
                   >
                     check_circle
                   </span>
@@ -309,9 +309,9 @@
                 </div>
               </div>
 
-              <!-- 最新の施術履歴 -->
+              <!-- 最新の会計／参考記録（売上とアーカイブ履歴のいずれか新しい方） -->
               <div v-if="reservation.latestHistory" class="bg-gray-50 rounded-lg p-3">
-                <h5 class="text-sm font-medium text-gray-700 mb-2">最新の施術履歴</h5>
+                <h5 class="text-sm font-medium text-gray-700 mb-2">最新の会計／参考記録</h5>
                 <div class="text-sm text-gray-600 space-y-1">
                   <p><strong>日時:</strong> {{ formatHistoryDateTime(reservation.latestHistory.dateTime) }}</p>
                   <p><strong>メニュー:</strong> {{ reservation.latestHistory.menu }}</p>
@@ -321,7 +321,7 @@
                 </div>
               </div>
               <div v-else class="bg-gray-50 rounded-lg p-3">
-                <p class="text-sm text-gray-500">施術履歴がありません</p>
+                <p class="text-sm text-gray-500">会計・参考記録がありません</p>
               </div>
             </div>
           </div>
@@ -790,7 +790,22 @@ const getMenuDataOptimized = async (menuNames) => {
   return menuData
 }
 
-// 最適化された履歴データ取得
+// 日時が新しい方のレコードを返す（施術履歴・売上のどちらでも同じ形で比較）
+const pickNewerHistoryOrSale = (a, b) => {
+  if (!a) return b
+  if (!b) return a
+  const aTime =
+    a.dateTime instanceof Timestamp
+      ? a.dateTime.toDate().getTime()
+      : new Date(a.dateTime).getTime()
+  const bTime =
+    b.dateTime instanceof Timestamp
+      ? b.dateTime.toDate().getTime()
+      : new Date(b.dateTime).getTime()
+  return bTime >= aTime ? b : a
+}
+
+// 最適化された履歴データ取得（週内の「会計済み」判定に売上も含める）
 const getHistoryDataOptimized = async (customerIds) => {
   const allHistories = new Map()
   const latestHistories = new Map()
@@ -807,13 +822,11 @@ const getHistoryDataOptimized = async (customerIds) => {
 
   const customerIdArray = Array.from(customerIds)
 
-  // 週間履歴と最新履歴を並列取得
   const historyPromises = []
 
   for (let i = 0; i < customerIdArray.length; i += 30) {
     const chunk = customerIdArray.slice(i, i + 30)
 
-    // 週間履歴
     const weekHistoryQuery = query(
       collection(db, 'histories'),
       where('customerId', 'in', chunk),
@@ -822,70 +835,138 @@ const getHistoryDataOptimized = async (customerIds) => {
     )
     historyPromises.push(getDocs(weekHistoryQuery))
 
-    // 最新履歴
     const allHistoryQuery = query(
       collection(db, 'histories'),
       where('customerId', 'in', chunk)
     )
     historyPromises.push(getDocs(allHistoryQuery))
+
+    const weekSaleQuery = query(
+      collection(db, 'sales'),
+      where('customerId', 'in', chunk),
+      where('dateTime', '>=', start),
+      where('dateTime', '<=', end)
+    )
+    historyPromises.push(getDocs(weekSaleQuery))
+
+    const allSaleQuery = query(collection(db, 'sales'), where('customerId', 'in', chunk))
+    historyPromises.push(getDocs(allSaleQuery))
   }
 
   const results = await Promise.all(historyPromises)
 
-  // 結果を処理
-  for (let i = 0; i < results.length; i += 2) {
+  for (let i = 0; i < results.length; i += 4) {
     const weekHistories = results[i]
     const allCustomerHistories = results[i + 1]
+    const weekSales = results[i + 2]
+    const allCustomerSales = results[i + 3]
 
-    // 週間履歴を処理
     weekHistories.forEach((doc) => {
       const historyData = doc.data()
-      const customerId = historyData.customerId
+      const cid = historyData.customerId
       const historyDate = format(historyData.dateTime.toDate(), 'yyyy-MM-dd')
 
-      if (!allHistories.has(customerId)) {
-        allHistories.set(customerId, new Map())
+      if (!allHistories.has(cid)) {
+        allHistories.set(cid, new Map())
       }
-      if (!allHistories.get(customerId).has(historyDate)) {
-        allHistories.get(customerId).set(historyDate, [])
+      if (!allHistories.get(cid).has(historyDate)) {
+        allHistories.get(cid).set(historyDate, [])
       }
-      allHistories.get(customerId).get(historyDate).push({
+      allHistories.get(cid).get(historyDate).push({
         id: doc.id,
         ...historyData
       })
     })
 
-    // 最新履歴を処理
+    weekSales.forEach((doc) => {
+      const saleData = doc.data()
+      const cid = saleData.customerId
+      if (!saleData.dateTime?.toDate) return
+      const saleDate = format(saleData.dateTime.toDate(), 'yyyy-MM-dd')
+
+      if (!allHistories.has(cid)) {
+        allHistories.set(cid, new Map())
+      }
+      if (!allHistories.get(cid).has(saleDate)) {
+        allHistories.get(cid).set(saleDate, [])
+      }
+      allHistories.get(cid).get(saleDate).push({
+        id: doc.id,
+        ...saleData
+      })
+    })
+
     const customerHistoryMap = new Map()
     allCustomerHistories.forEach((doc) => {
       const historyData = { id: doc.id, ...doc.data() }
-      const customerId = historyData.customerId
+      const cid = historyData.customerId
 
-      if (!customerHistoryMap.has(customerId)) {
-        customerHistoryMap.set(customerId, [])
+      if (!customerHistoryMap.has(cid)) {
+        customerHistoryMap.set(cid, [])
       }
-      customerHistoryMap.get(customerId).push(historyData)
+      customerHistoryMap.get(cid).push(historyData)
     })
 
-    customerHistoryMap.forEach((histories, customerId) => {
+    const customerSaleMap = new Map()
+    allCustomerSales.forEach((doc) => {
+      const saleData = { id: doc.id, ...doc.data() }
+      const cid = saleData.customerId
+
+      if (!customerSaleMap.has(cid)) {
+        customerSaleMap.set(cid, [])
+      }
+      customerSaleMap.get(cid).push(saleData)
+    })
+
+    const mergeLatestForCustomer = (cid) => {
+      const histories = customerHistoryMap.get(cid) || []
+      const salesList = customerSaleMap.get(cid) || []
+
+      let latestH = null
       if (histories.length > 0) {
-        const latestHistory = histories.sort((a, b) => {
+        latestH = histories.sort((a, b) => {
           const aTime = a.dateTime instanceof Timestamp ? a.dateTime.toDate() : new Date(a.dateTime)
           const bTime = b.dateTime instanceof Timestamp ? b.dateTime.toDate() : new Date(b.dateTime)
           return bTime - aTime
         })[0]
 
-        if (latestHistory.dateTime && !(latestHistory.dateTime instanceof Timestamp)) {
-          if (typeof latestHistory.dateTime === 'object' && 'seconds' in latestHistory.dateTime) {
-            latestHistory.dateTime = new Timestamp(latestHistory.dateTime.seconds, latestHistory.dateTime.nanoseconds)
+        if (latestH.dateTime && !(latestH.dateTime instanceof Timestamp)) {
+          if (typeof latestH.dateTime === 'object' && 'seconds' in latestH.dateTime) {
+            latestH.dateTime = new Timestamp(latestH.dateTime.seconds, latestH.dateTime.nanoseconds)
           } else {
-            latestHistory.dateTime = Timestamp.fromDate(new Date(latestHistory.dateTime))
+            latestH.dateTime = Timestamp.fromDate(new Date(latestH.dateTime))
           }
         }
-
-        latestHistories.set(customerId, latestHistory)
       }
-    })
+
+      let latestS = null
+      if (salesList.length > 0) {
+        latestS = salesList.sort((a, b) => {
+          const aTime = a.dateTime instanceof Timestamp ? a.dateTime.toDate() : new Date(a.dateTime)
+          const bTime = b.dateTime instanceof Timestamp ? b.dateTime.toDate() : new Date(b.dateTime)
+          return bTime - aTime
+        })[0]
+
+        if (latestS.dateTime && !(latestS.dateTime instanceof Timestamp)) {
+          if (typeof latestS.dateTime === 'object' && 'seconds' in latestS.dateTime) {
+            latestS.dateTime = new Timestamp(latestS.dateTime.seconds, latestS.dateTime.nanoseconds)
+          } else {
+            latestS.dateTime = Timestamp.fromDate(new Date(latestS.dateTime))
+          }
+        }
+      }
+
+      const merged = pickNewerHistoryOrSale(latestH, latestS)
+      if (merged) {
+        latestHistories.set(cid, merged)
+      }
+    }
+
+    const cidSet = new Set([
+      ...customerHistoryMap.keys(),
+      ...customerSaleMap.keys(),
+    ])
+    cidSet.forEach(mergeLatestForCustomer)
   }
 
   return { allHistories, latestHistories }
@@ -1285,6 +1366,38 @@ const fetchReservations = async () => {
         })
       })
 
+      const salePromises = []
+      for (let i = 0; i < customerIdArray.length; i += 30) {
+        const chunk = customerIdArray.slice(i, i + 30)
+        const salesQuery = query(
+          collection(db, 'sales'),
+          where('customerId', 'in', chunk),
+          where('dateTime', '>=', start),
+          where('dateTime', '<=', end)
+        )
+        salePromises.push(getDocs(salesQuery))
+      }
+      const salesSnapshots = await Promise.all(salePromises)
+      salesSnapshots.forEach((salesSnapshot) => {
+        salesSnapshot.forEach((doc) => {
+          const saleData = doc.data()
+          const cid = saleData.customerId
+          if (!saleData.dateTime?.toDate) return
+          const saleDate = format(saleData.dateTime.toDate(), 'yyyy-MM-dd')
+
+          if (!allHistories.has(cid)) {
+            allHistories.set(cid, new Map())
+          }
+          if (!allHistories.get(cid).has(saleDate)) {
+            allHistories.get(cid).set(saleDate, [])
+          }
+          allHistories.get(cid).get(saleDate).push({
+            id: doc.id,
+            ...saleData
+          })
+        })
+      })
+
                   // 最新履歴を高速取得（単一クエリで全取得）
       if (customerIdArray.length > 0) {
         // 全顧客の履歴を一括取得し、後でソート
@@ -1374,6 +1487,41 @@ const fetchReservations = async () => {
           }
         }
       }
+
+      const saleAllPromises = []
+      for (let i = 0; i < customerIdArray.length; i += 30) {
+        const chunk = customerIdArray.slice(i, i + 30)
+        saleAllPromises.push(
+          getDocs(query(collection(db, 'sales'), where('customerId', 'in', chunk)))
+        )
+      }
+      const saleAllSnapshots = await Promise.all(saleAllPromises)
+      saleAllSnapshots.forEach((snap) => {
+        const byCustomer = new Map()
+        snap.forEach((doc) => {
+          const row = { id: doc.id, ...doc.data() }
+          const cid = row.customerId
+          if (!byCustomer.has(cid)) byCustomer.set(cid, [])
+          byCustomer.get(cid).push(row)
+        })
+        byCustomer.forEach((rows, cid) => {
+          if (rows.length === 0) return
+          const latestS = rows.sort((a, b) => {
+            const aTime = a.dateTime instanceof Timestamp ? a.dateTime.toDate() : new Date(a.dateTime)
+            const bTime = b.dateTime instanceof Timestamp ? b.dateTime.toDate() : new Date(b.dateTime)
+            return bTime - aTime
+          })[0]
+          if (latestS.dateTime && !(latestS.dateTime instanceof Timestamp)) {
+            if (typeof latestS.dateTime === 'object' && 'seconds' in latestS.dateTime) {
+              latestS.dateTime = new Timestamp(latestS.dateTime.seconds, latestS.dateTime.nanoseconds)
+            } else {
+              latestS.dateTime = Timestamp.fromDate(new Date(latestS.dateTime))
+            }
+          }
+          const cur = latestHistories.get(cid)
+          latestHistories.set(cid, pickNewerHistoryOrSale(cur, latestS))
+        })
+      })
     }
 
     // 予約データを処理
@@ -1640,8 +1788,8 @@ const editReservation = (id) => {
   router.push(`/editreservation/${id}`)
 }
 
-// 施術履歴追加（開いている週を渡して、戻る時に同じ週に戻れるようにする）
-const addTreatmentHistory = (reservation) => {
+// 会計・顧客画面へ（開いている週を渡して、戻る時に同じ週に戻れるようにする）
+const goCustomerAccounting = (reservation) => {
   const weekStartISO = format(currentWeekStart.value, 'yyyy-MM-dd')
   router.push({
     path: `/history/${reservation.customerId}`,

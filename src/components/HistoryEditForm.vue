@@ -173,7 +173,11 @@ const formatDate = (input) => {
 }
 
 const goBack = () => {
-  router.push('/reservations')
+  if (history.value.customerId) {
+    router.push(`/history/${history.value.customerId}`)
+  } else {
+    router.push('/reservations')
+  }
 }
 
 const submitForm = async () => {

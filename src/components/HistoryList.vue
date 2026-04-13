@@ -2,17 +2,11 @@
   <div class="container mx-auto p-8 bg-white text-charcoal-black">
     <div class="flex justify-between items-center mb-6">
       <div>
-        <h2 class="text-2xl font-bold text-charcoal-black">施術履歴</h2>
+        <h2 class="text-2xl font-bold text-charcoal-black">施術履歴（アーカイブ）</h2>
         <!-- 顧客名を表示 -->
         <p v-if="customerName" class="text-navy text-2xl">{{ customerName }}</p>
       </div>
       <div>
-        <button
-          @click="addHistory"
-          class="bg-color3 hover:bg-light-gray m-3 px-5 py-3 rounded-md text-white text-sm"
-        >
-          履歴追加
-        </button>
         <!-- 戻るボタンを追加 -->
         <button
           @click="goBack"
@@ -132,10 +126,7 @@ const goBack = () => {
   router.push('/customer')
 }
 const editHistory = (id) => {
-  router.push(`/edithistory/${id}`)
-}
-const addHistory = () => {
-  router.push(`/addhistory/${customerId}`)
+  router.push(`/edithistoryrecord/${id}`)
 }
 const deleteHistory = async (id) => {
   if (confirm('本当に削除しますか？')) {

@@ -14,7 +14,7 @@ import CustomerHistory from '../components/CustomerHistory.vue'
 import Login from '../components/Login.vue'
 
 import CustomerForm from '../components/CustomerForm.vue'
-import AddHistory from '../components/AddHistory.vue'
+import HistoryEditForm from '../components/HistoryEditForm.vue'
 
 const router = createRouter({
   history: createWebHistory('/salon-karte/'),
@@ -54,6 +54,12 @@ const router = createRouter({
       component: CustomerHistory
     },
     {
+      path: '/edithistoryrecord/:id',
+      name: 'edithistoryrecord',
+      component: HistoryEditForm,
+      meta: { requiresAuth: true },
+    },
+    {
       path: '/edithistory/:id',
       name: 'edithistory',
       component: SaleEditForm
@@ -71,8 +77,10 @@ const router = createRouter({
     {
       path: '/addhistory/:id',
       name: 'addhistory',
-      component: AddHistory,
-      meta: { requiresAuth: true }
+      redirect: (to) => ({
+        path: '/saleform',
+        query: { customerId: to.params.id, ...to.query },
+      }),
     },
     {
       path: '/edit',

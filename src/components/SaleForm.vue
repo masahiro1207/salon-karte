@@ -157,7 +157,7 @@
 <script setup>
 import { ref, onMounted, watch } from 'vue'
 import { db } from '../firebase'
-import { collection, addDoc, getDocs, Timestamp, doc, updateDoc } from 'firebase/firestore'
+import { collection, getDocs, Timestamp, doc, updateDoc } from 'firebase/firestore'
 import { useRouter, useRoute } from 'vue-router'
 import customerService from '../services/customerService'
 
@@ -225,7 +225,15 @@ const removeProduct = (index) => {
 }
 
 const goBack = () => {
-  router.push('/sales')
+  const cid = route.query.customerId
+  const ws = route.query.weekStart
+  if (cid && ws) {
+    router.push({ path: `/history/${cid}`, query: { weekStart: ws } })
+  } else if (cid) {
+    router.push(`/history/${cid}`)
+  } else {
+    router.push('/sales')
+  }
 }
 
 const submitForm = async () => {
@@ -251,9 +259,25 @@ const submitForm = async () => {
     } else {
       // 新規作成の場合は顧客サービスを使用（顧客データも自動更新）
       await customerService.createSale(formattedSale)
+      const eventId = route.query.eventId
+      if (eventId) {
+        try {
+          await updateDoc(doc(db, 'reservations', eventId), {
+            hasTreatmentHistory: true,
+          })
+        } catch (err) {
+          console.error('Failed to update reservation flag:', err)
+        }
+      }
       console.log('Sale created successfully')
     }
-    router.push('/sales')
+    const cid = route.query.customerId
+    const ws = route.query.weekStart
+    if (cid) {
+      router.push({ path: `/history/${cid}`, query: ws ? { weekStart: ws } : {} })
+    } else {
+      router.push('/sales')
+    }
   } catch (e) {
     console.error('Error adding/updating document: ', e)
     alert('保存中にエラーが発生しました。')
@@ -294,7 +318,7 @@ onMounted(async () => {
       : new Date()
     const staff = route.query.staff ? decodeURIComponent(route.query.staff) : ''
 
-    // 予約情報をフォームに設定
+    // 予約からの売上
     if (customerId && eventId) {
       sale.value = {
         ...sale.value,
@@ -309,10 +333,23 @@ onMounted(async () => {
         notes: '',
       }
 
-      // メニューの価格を設定
       const selectedMenu = menus.value.find((m) => m.name === menu)
       if (selectedMenu) {
         sale.value.price = selectedMenu.price
+      }
+    } else if (customerId) {
+      // 顧客画面からの新規売上のみ
+      sale.value = {
+        ...sale.value,
+        customerId,
+        dateTime: formatDate(new Date()),
+        menu: '',
+        staff: '',
+        price: null,
+        discount: 0,
+        paymentMethod: '現金',
+        products: [{ name: '', count: 1 }],
+        notes: '',
       }
     }
   } catch (e) {

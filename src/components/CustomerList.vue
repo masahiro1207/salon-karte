@@ -517,26 +517,42 @@ onMounted(async () => {
       ...doc.data(),
     }))
 
-    // 施術履歴データを取得
+    // 施術履歴・売上のうち新しい方を最終来店日に反映（会計は売上ベース）
     const historiesSnapshot = await getDocs(collection(db, 'histories'))
     const historiesMap = new Map()
     historiesSnapshot.forEach((doc) => {
       const data = doc.data()
       if (data.customerId && data.dateTime) {
-        // 最新の施術履歴の日時を保存（customerIdをキーとして使用）
         let currentDateTime
         let existingDateTime
 
-        // dateTimeの型を安全に処理
         currentDateTime = safeToDate(data.dateTime)
         if (!currentDateTime) {
-          return // dateTimeが無効な場合はスキップ
+          return
         }
 
         const existingHistoryDateTime = historiesMap.get(data.customerId)
         if (existingHistoryDateTime) {
           existingDateTime = safeToDate(existingHistoryDateTime)
         }
+
+        if (!existingDateTime || currentDateTime > existingDateTime) {
+          historiesMap.set(data.customerId, data.dateTime)
+        }
+      }
+    })
+
+    const salesSnapshot = await getDocs(collection(db, 'sales'))
+    salesSnapshot.forEach((doc) => {
+      const data = doc.data()
+      if (data.customerId && data.dateTime) {
+        const currentDateTime = safeToDate(data.dateTime)
+        if (!currentDateTime) {
+          return
+        }
+
+        const existingTs = historiesMap.get(data.customerId)
+        const existingDateTime = existingTs ? safeToDate(existingTs) : null
 
         if (!existingDateTime || currentDateTime > existingDateTime) {
           historiesMap.set(data.customerId, data.dateTime)
@@ -551,7 +567,6 @@ onMounted(async () => {
         await updateDoc(customerRef, {
           lastVisit: historiesMap.get(customer.id),
         })
-        // ローカルのデータも更新
         customer.lastVisit = historiesMap.get(customer.id)
       }
     })
