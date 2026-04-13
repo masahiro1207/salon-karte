@@ -28,7 +28,7 @@
       <p
         class="mt-4 text-sm text-amber-900 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2"
       >
-        手書きカルテ・施術メモは Goodnotes で管理します。ここでは会計（売上）と、以前 Web に登録した施術履歴のアーカイブのみを扱います。
+        手書きカルテ・施術メモは Goodnotes で管理します。ここでは会計（売上）のみを扱います。
       </p>
 
       <!-- フィルター -->
@@ -69,7 +69,7 @@
           <p class="text-lg">{{ customerPhone }}</p>
         </div>
         <div>
-          <p class="text-gray-600">最終記録日（売上・履歴のいずれか新しい方）</p>
+          <p class="text-gray-600">最終記録日（売上）</p>
           <p class="text-lg">{{ lastVisitDate }}</p>
         </div>
         <div>
@@ -116,6 +116,7 @@
                 <th class="px-6 py-4 text-right text-sm font-medium text-gray-600">金額（割引後）</th>
                 <th class="px-6 py-4 text-left text-sm font-medium text-gray-600">支払方法</th>
                 <th class="px-6 py-4 text-left text-sm font-medium text-gray-600">備考</th>
+                <th class="px-6 py-4 text-center text-sm font-medium text-gray-600">GNカルテ</th>
                 <th class="px-6 py-4 text-center text-sm font-medium text-gray-600">操作</th>
               </tr>
             </thead>
@@ -126,6 +127,24 @@
                 <td class="px-6 py-4 text-right">¥{{ netPrice(sale).toLocaleString() }}</td>
                 <td class="px-6 py-4">{{ sale.paymentMethod }}</td>
                 <td class="px-6 py-4">{{ sale.notes }}</td>
+                <td class="px-6 py-4 text-center">
+                  <a
+                    v-if="goodnotesUrl(sale.dateTime)"
+                    :href="goodnotesUrl(sale.dateTime)"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="inline-flex items-center justify-center rounded-full bg-emerald-600 text-white text-xs font-medium px-3 py-1.5 hover:bg-emerald-700"
+                  >
+                    開く
+                  </a>
+                  <span
+                    v-else
+                    class="inline-flex items-center justify-center rounded-full bg-gray-200 text-gray-400 text-xs font-medium px-3 py-1.5 cursor-not-allowed select-none"
+                    title="この来店年月のGoodnotesリンクは未設定です"
+                  >
+                    GN
+                  </span>
+                </td>
                 <td class="px-6 py-4">
                   <div class="flex justify-center space-x-2">
                     <button
@@ -171,77 +190,6 @@
         </p>
       </div>
     </div>
-
-    <!-- アーカイブ：Web 施術履歴 -->
-    <div>
-      <h3 class="text-lg font-semibold text-gray-800 mb-2 max-w-7xl mx-auto">
-        Web施術履歴（アーカイブ・参照用）
-      </h3>
-      <div class="bg-white rounded-lg shadow-sm overflow-hidden max-w-7xl mx-auto">
-        <div class="overflow-x-auto">
-          <table class="w-full border-collapse min-w-[1000px]">
-            <thead class="bg-gray-50">
-              <tr>
-                <th class="px-6 py-4 text-left text-sm font-medium text-gray-600">日時</th>
-                <th class="px-6 py-4 text-left text-sm font-medium text-gray-600">メニュー</th>
-                <th class="px-6 py-4 text-right text-sm font-medium text-gray-600">料金</th>
-                <th class="px-6 py-4 text-left text-sm font-medium text-gray-600">支払方法</th>
-                <th class="px-6 py-4 text-left text-sm font-medium text-gray-600">備考</th>
-                <th class="px-6 py-4 text-center text-sm font-medium text-gray-600">操作</th>
-              </tr>
-            </thead>
-            <tbody class="divide-y divide-gray-100">
-              <tr v-for="history in displayedArchiveHistories" :key="history.id" class="hover:bg-gray-50">
-                <td class="px-6 py-4">{{ formatDateTime(history.dateTime) }}</td>
-                <td class="px-6 py-4">{{ history.menu }}</td>
-                <td class="px-6 py-4 text-right">¥{{ (history.price ?? 0).toLocaleString() }}</td>
-                <td class="px-6 py-4">{{ history.paymentMethod }}</td>
-                <td class="px-6 py-4">{{ history.notes }}</td>
-                <td class="px-6 py-4">
-                  <div class="flex justify-center space-x-2">
-                    <button
-                      @click="editArchiveHistory(history.id)"
-                      class="text-color3 hover:text-opacity-80"
-                      type="button"
-                    >
-                      <span class="material-icons">edit</span>
-                    </button>
-                    <button
-                      @click="deleteHistory(history.id)"
-                      class="text-red-500 hover:text-opacity-80"
-                      type="button"
-                    >
-                      <span class="material-icons">delete</span>
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <div v-if="filteredHistories.length > 3" class="px-6 py-4 bg-gray-50 border-t">
-          <button
-            type="button"
-            @click="toggleShowAllArchive"
-            class="w-full flex items-center justify-center space-x-2 text-gray-600 hover:text-gray-800 transition-colors"
-          >
-            <span
-              class="material-icons transform transition-transform"
-              :class="{ 'rotate-180': showAllArchive }"
-            >
-              expand_more
-            </span>
-            <span>
-              {{ showAllArchive ? '折り畳む' : `さらに${filteredHistories.length - 3}件を表示` }}
-            </span>
-          </button>
-        </div>
-        <p v-if="filteredHistories.length === 0" class="px-6 py-8 text-center text-gray-500 text-sm">
-          アーカイブの施術履歴はありません。
-        </p>
-      </div>
-    </div>
   </div>
 </template>
 
@@ -256,11 +204,11 @@ import {
   deleteDoc,
   query,
   where,
-  orderBy,
   updateDoc,
 } from 'firebase/firestore'
 import { useRouter, useRoute } from 'vue-router'
 import { Timestamp } from 'firebase/firestore'
+import { getGoodnotesUrlForDateTime } from '../config/goodnotesMonthLinks'
 
 const router = useRouter()
 const route = useRoute()
@@ -272,14 +220,12 @@ const customerPhone = ref('')
 const lastVisitDate = ref('')
 const totalVisits = ref(0)
 const totalAmount = ref(0)
-const histories = ref([])
 const sales = ref([])
 const menus = ref([])
 const startDate = ref('')
 const endDate = ref('')
 const selectedMenu = ref('')
 const showAllSales = ref(false)
-const showAllArchive = ref(false)
 
 const toDate = (dateTime) => {
   if (!dateTime) return null
@@ -295,36 +241,6 @@ const netPrice = (sale) => {
   const d = Number(sale.discount) || 0
   return p - d
 }
-
-const filteredHistories = computed(() => {
-  let filtered = histories.value
-
-  if (startDate.value) {
-    filtered = filtered.filter((history) => {
-      const historyDate = toDate(history.dateTime)
-      return historyDate && historyDate >= new Date(startDate.value)
-    })
-  }
-
-  if (endDate.value) {
-    const end = new Date(endDate.value)
-    end.setHours(23, 59, 59, 999)
-    filtered = filtered.filter((history) => {
-      const historyDate = toDate(history.dateTime)
-      return historyDate && historyDate <= end
-    })
-  }
-
-  if (selectedMenu.value) {
-    filtered = filtered.filter((history) => history.menu === selectedMenu.value)
-  }
-
-  return filtered.sort((a, b) => {
-    const da = toDate(a.dateTime)
-    const db = toDate(b.dateTime)
-    return (db?.getTime() || 0) - (da?.getTime() || 0)
-  })
-})
 
 const filteredSales = computed(() => {
   let filtered = sales.value
@@ -361,17 +277,8 @@ const displayedSales = computed(() => {
   return filteredSales.value.slice(0, 3)
 })
 
-const displayedArchiveHistories = computed(() => {
-  if (showAllArchive.value) return filteredHistories.value
-  return filteredHistories.value.slice(0, 3)
-})
-
 const toggleShowAllSales = () => {
   showAllSales.value = !showAllSales.value
-}
-
-const toggleShowAllArchive = () => {
-  showAllArchive.value = !showAllArchive.value
 }
 
 const totalSalesFiltered = computed(() =>
@@ -391,6 +298,8 @@ const creditCardTotalFiltered = computed(() =>
     return sum
   }, 0),
 )
+
+const goodnotesUrl = (dateTime) => getGoodnotesUrlForDateTime(dateTime)
 
 const formatDateTime = (dateTime) => {
   if (!dateTime) return ''
@@ -426,7 +335,6 @@ const recalcHeaderAfterFetch = () => {
   }
 
   sales.value.forEach((s) => consider(s.dateTime))
-  histories.value.forEach((h) => consider(h.dateTime))
 
   if (!hasAny) {
     lastVisitDate.value = 'なし'
@@ -440,12 +348,6 @@ const recalcHeaderAfterFetch = () => {
 
 const syncCustomerLastVisit = async () => {
   const tsList = []
-  for (const h of histories.value) {
-    if (h.dateTime) {
-      const t = h.dateTime instanceof Timestamp ? h.dateTime : Timestamp.fromDate(toDate(h.dateTime))
-      tsList.push(t)
-    }
-  }
   for (const s of sales.value) {
     if (s.dateTime) {
       const t = s.dateTime instanceof Timestamp ? s.dateTime : Timestamp.fromDate(toDate(s.dateTime))
@@ -493,23 +395,6 @@ const deleteSale = async (id) => {
   }
 }
 
-const editArchiveHistory = (id) => {
-  router.push(`/edithistoryrecord/${id}`)
-}
-
-const deleteHistory = async (id) => {
-  if (!confirm('このアーカイブ履歴を削除してもよろしいですか？')) return
-  try {
-    await deleteDoc(doc(db, 'histories', id))
-    histories.value = histories.value.filter((h) => h.id !== id)
-    recalcHeaderAfterFetch()
-    await syncCustomerLastVisit()
-  } catch (e) {
-    console.error('Error deleting document: ', e)
-    alert('履歴の削除に失敗しました。')
-  }
-}
-
 const goToSalesList = () => {
   router.push({
     path: '/sales',
@@ -548,21 +433,9 @@ onMounted(async () => {
       .map((d) => ({ id: d.id, ...d.data() }))
       .sort((a, b) => a.kana.localeCompare(b.kana, 'ja'))
 
-    const historyQuery = query(
-      collection(db, 'histories'),
-      where('customerId', '==', customerId),
-      orderBy('dateTime', 'desc'),
-    )
-    const historySnapshot = await getDocs(historyQuery)
-    histories.value = historySnapshot.docs.map((d) => ({
-      id: d.id,
-      ...d.data(),
-    }))
-
     const salesQuery = query(
       collection(db, 'sales'),
       where('customerId', '==', customerId),
-      orderBy('dateTime', 'desc'),
     )
     const salesSnapshot = await getDocs(salesQuery)
     sales.value = salesSnapshot.docs.map((d) => ({
@@ -571,19 +444,6 @@ onMounted(async () => {
     }))
 
     recalcHeaderAfterFetch()
-
-    const notes = route.query.notes
-    if (notes && histories.value.length > 0) {
-      const latestHistory = histories.value[0]
-      const decoded = decodeURIComponent(notes)
-      if (latestHistory.notes !== decoded) {
-        const historyRef = doc(db, 'histories', latestHistory.id)
-        await updateDoc(historyRef, {
-          notes: decoded,
-        })
-        latestHistory.notes = decoded
-      }
-    }
   } catch (e) {
     console.error('Error getting documents: ', e)
   }
